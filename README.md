@@ -5,7 +5,7 @@ Slavi Sotirov
 COS 4091A - Senior Project (AUBG 2026 Spring Semester) 
 
 ##Description of project:
-Lightweight Relational Datbase engine implemented in C++.
+Lightweight Relational Database engine implemented in C++.
 
 ##Scope of project:
 - Page-based storage with fixed-size disk pages.
