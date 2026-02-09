@@ -2,7 +2,7 @@
 
 Slavi Sotirov
 
-COS 4091A - Senior Project (AUBG 2026 Fall Semester) 
+COS 4091A - Senior Project (AUBG 2026 Spring Semester) 
 
 ##Description of project:
 Lightweight Relational Datbase engine implemented in C++.
