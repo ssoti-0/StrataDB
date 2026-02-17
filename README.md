@@ -17,4 +17,12 @@ Lightweight Relational Database engine implemented in C++.
 - Concurrency Control
 - Transactions
 
+##Build for MacOS
 
+```shell
+mkdir -p build
+cd build
+cmake ..
+cmake --build .
+./stratadb 
+```
