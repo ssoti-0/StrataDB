@@ -10,7 +10,7 @@ namespace stratadb {
 
     //Every page is 4096 bytes
     constexpr std::size_t PAGE_SIZE = 4096;
-    using PAGE = std::array<char, PAGE_SIZE>;
+    using Page = std::array<char, PAGE_SIZE>;
     using page_id_t = std::uint32_t;
 
 
