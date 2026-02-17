@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/slavi/StrataDB/build",
+  "command": "/usr/bin/clang++   -g -std=c++20 -arch arm64 -o CMakeFiles/stratadb.dir/src/main.cpp.o -c /Users/slavi/StrataDB/src/main.cpp",
+  "file": "/Users/slavi/StrataDB/src/main.cpp",
+  "output": "CMakeFiles/stratadb.dir/src/main.cpp.o"
+}
+]
