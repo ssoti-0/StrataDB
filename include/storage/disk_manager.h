@@ -22,7 +22,19 @@ class DiskManager {
     page_id_t num_pages_;
 
     public:
-    
+    explicit DiskManager(const std::string& file_path);
+    ~DiskManager() = default;
+
+    DiskManager(const DiskManager&) = delete;
+    DiskManager& operator=(const DiskManager&) = delete;
+
+    void read_page(page_id_t page_id, Page& buffer) const;
+
+    void write_page(page_id_t page_id, const Page& buffer);
+
+    page_id_t num_pages() const;
+    const std::string& file_path() const;
+
 };
 }
 
