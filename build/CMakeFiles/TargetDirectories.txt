@@ -1,3 +1,0 @@
-/Users/slavi/StrataDB/build/CMakeFiles/stratadb.dir
-/Users/slavi/StrataDB/build/CMakeFiles/edit_cache.dir
-/Users/slavi/StrataDB/build/CMakeFiles/rebuild_cache.dir
