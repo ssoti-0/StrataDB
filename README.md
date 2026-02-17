@@ -26,3 +26,11 @@ cmake ..
 cmake --build .
 ./stratadb 
 ```
+## Commit Naming - for better clarity
+
+This project is going to use the following commit prefixes: 
+- `wip:` - working on file
+- `done:` - finished code
+- `fix:` - bug fixed
+- `rework:` - chaning an approach to a code
+- `docs:` - updated documentation or Read.me
