@@ -13,7 +13,7 @@ namespace stratadb {
     using Page = std::array<char, PAGE_SIZE>;
     using page_id_t = std::uint32_t;
 
-
+//Page-based I/O
 class DiskManager {
 
     private:
@@ -28,8 +28,10 @@ class DiskManager {
     DiskManager(const DiskManager&) = delete;
     DiskManager& operator=(const DiskManager&) = delete;
 
+    //Reads page (throws if page_id out of range)
     void read_page(page_id_t page_id, Page& buffer) const;
 
+    //Writes page (throws if page_id out of range)
     void write_page(page_id_t page_id, const Page& buffer);
 
     page_id_t num_pages() const;
