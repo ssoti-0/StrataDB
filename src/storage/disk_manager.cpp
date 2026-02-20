@@ -58,7 +58,7 @@ void DiskManager::read_page(page_id_t page_id, Page& buffer) const {
 }
 
 void DiskManager::write_page(page_id_t page_id, const Page& buffer) {
-    if (page_id >= num_pages_) {
+    if (page_id > num_pages_) {
         throw std::runtime_error("write_page: page_id " + std::to_string(page_id) + " out of range");
     }
 

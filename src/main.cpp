@@ -27,7 +27,7 @@ static void check_throws(Func&& func, const std::string& description) {
         ++test_failed;
     } catch (const std::runtime_error&) {
         std::cout << "PASS: " << description << "\n";
-        ++tests_passed;
+        ++test_passed;
     }
 }
 
@@ -44,6 +44,16 @@ static void test_disk_manager() {
     check(dm.num_pages() == 0, "new file starts with 0 pages");
     check(dm.file_path() == test_file, "file_path() returns the correct path");
 
+    //Page allocation
+    std::cout << "\nPage allocation";
+    stratadb::page_id_t p0 = dm.allocate_page();
+    stratadb::page_id_t p1 = dm.allocate_page();
+    stratadb::page_id_t p2 = dm.allocate_page();
+    check(p0 == 0, "first page has id 0");
+    check(p1 == 1, "second page has id 1");
+    check(p2 == 2, "third page has id 2");
+    check(dm.num_pages() == 3, "num_pages is 3 after 3 allocations");
+
     //Write and read back
     std::cout << "\nWrite and read\n";
     stratadb::Page write_buf{};
@@ -56,15 +66,6 @@ static void test_disk_manager() {
     check(read_buf == write_buf, "read_page returns what was written");
     check(std::memcmp(read_buf.data(), message, std::strlen(message)) == 0, "content matches espected string");
 
-    //Page allocation
-    std::cout << "\nPage allocation";
-    stratadb::page_id_t p0 = dm.allocate_page();
-    stratadb::page_id_t p1 = dm.allocate_page();
-    stratadb::page_id_t p2 = dm.allocate_page();
-    check(p0 == 0, "first page has id 0");
-    check(p1 == 1, "second page has id 1");
-    check(p2 == 2, "third page has id 2");
-    check(dm.num_pages() == 3, "num_pages is 3 after 3 allocations");
 
     //Validation
     std::cout <<"\n[Validation\n";
