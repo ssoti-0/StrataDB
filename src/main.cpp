@@ -57,7 +57,7 @@ static void test_disk_manager() {
     check(std::memcmp(read_buf.data(), message, std::strlen(message)) == 0, "content matches espected string");
 
     //Page allocation
-    std::cout << "\nPage allocation;"
+    std::cout << "\nPage allocation";
     stratadb::page_id_t p0 = dm.allocate_page();
     stratadb::page_id_t p1 = dm.allocate_page();
     stratadb::page_id_t p2 = dm.allocate_page();
