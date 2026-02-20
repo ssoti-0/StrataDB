@@ -34,6 +34,9 @@ class DiskManager {
     //Writes page (throws if page_id out of range)
     void write_page(page_id_t page_id, const Page& buffer);
 
+    //Allocating a new zero-filled page at the end - returns its page_id
+    page_id_t allocate_page();
+
     page_id_t num_pages() const;
     const std::string& file_path() const;
 

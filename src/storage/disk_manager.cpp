@@ -68,9 +68,21 @@ void DiskManager::write_page(page_id_t page_id, const Page& buffer) {
         throw std::runtime_error("write_page: seek failed");
     }
 
+    file_.write(buffer.data(), PAGE_SIZE);
+    if (!file_.good()) {
+        throw std::runtime_error("write_page: seek failed");
+    }
+
     if (page_id == num_pages_) {
         ++num_pages_;
     }
+}
+
+page_id_t DiskManager::allocate_page() {
+    Page zeroed_page{};
+    page_id_t new_page_id = num_pages_;
+    write_page(new_page_id, zeroed_page);
+    return new_page_id;
 }
 page_id_t DiskManager::num_pages() const {
     return num_pages_;
