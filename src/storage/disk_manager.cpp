@@ -73,6 +73,8 @@ void DiskManager::write_page(page_id_t page_id, const Page& buffer) {
         throw std::runtime_error("write_page: seek failed");
     }
 
+    file_.flush();
+
     if (page_id == num_pages_) {
         ++num_pages_;
     }
