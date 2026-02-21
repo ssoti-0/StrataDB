@@ -1,6 +1,19 @@
 #include "storage/disk_manager.h"
 #include <stdexcept>
 
+// Implementation of page-based binary I/O 
+//
+// File creation:
+// First, the constructor checks whether the file is already present by trying to open it for reading,
+// and if that fails, it creates it with a brief std::ofstream, and then immediately closes it. After that'
+// the file is reopened with fstream in read/write/binary mode, which is guaranteed to succeed
+// since the file exists.
+// 
+// Page count caching:
+// Instead of querying the size of the file on every operation. num_pages_ is computed once in the constructor
+// and is manually kept in sync (write_page increments it when appending, and allocate_page increments it after 
+// writing a zeroed page).
+
 namespace stratadb {
 
     DiskManager::DiskManager (const std::string& file_path)
@@ -17,7 +30,7 @@ namespace stratadb {
                     "DiskManager: failed to create file '" + file_path_ + "'");
             }
             create_file.close();
-
+            //Opening the newly created file.
             file_.open(file_path_, std::ios::in | std::ios::out | std::ios::binary);
 
             if (!file_.is_open()) {
@@ -30,7 +43,7 @@ namespace stratadb {
             file_.close();
 
             num_pages_ = static_cast<page_id_t>(file_size) / PAGE_SIZE;
-
+            //Reopen it in read/write mode.
             file_.open(file_path_, std::ios::in | std::ios::out |std::ios::binary);
             if (!file_.is_open()) {
                 throw std::runtime_error (
@@ -72,7 +85,7 @@ void DiskManager::write_page(page_id_t page_id, const Page& buffer) {
     if (!file_.good()) {
         throw std::runtime_error("write_page: seek failed");
     }
-
+    //Flush is used here to make sure that the data reaches the disk.
     file_.flush();
 
     if (page_id == num_pages_) {
