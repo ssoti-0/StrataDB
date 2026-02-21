@@ -66,7 +66,15 @@ static void test_disk_manager() {
     check(read_buf == write_buf, "read_page returns what was written");
     check(std::memcmp(read_buf.data(), message, std::strlen(message)) == 0, "content matches espected string");
 
-
+    //Zero-fill verification
+    std::cout << "\nZero-fill verification";
+    stratadb::Page zero_buf{};
+    stratadb::Page alloc_read{};
+    dm.read_page(0, alloc_read);
+    check(alloc_read == zero_buf, "allocated page 0 is zero-filled");
+    dm.read_page(2, alloc_read);
+    check(alloc_read == zero_buf, "allocated page 2 is zero-filled");
+    
     //Validation
     std::cout <<"\n[Validation\n";
     stratadb::Page dummy{};
