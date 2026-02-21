@@ -32,8 +32,8 @@ Lightweight Relational Database engine implemented in C++.
 
 ### **Layer 1: Storage Layer** 
 
-**Component** 'DiskManager'
-**Location** 'include/storage/disk_manager.h' , 'src/storage/disk_manager.cpp'
+- **Component** 'DiskManager'
+- **Location** 'include/storage/disk_manager.h' , 'src/storage/disk_manager.cpp'
 
 **Responsibilities**
 - Management of page-based disk I/O (fixed 4096-byte pages)
@@ -56,15 +56,15 @@ Lightweight Relational Database engine implemented in C++.
 
 ### **Upcoming Layers** (Future Implementation)
 
-**Layer 2: Index LAyer (B+ Tree)**
-**Layer 3: Query Processing**
-**Layer 4: Execution**
+- **Layer 2: Index LAyer (B+ Tree)**
+- **Layer 3: Query Processing**
+- **Layer 4: Execution**
 
 **(Storage Layer --> B+ Tree Index --> Query Parser --> SQL Executor)**
 
 ---
 
-##Testing
+### Testing
 
 **Test Suite:** 'src/main.cpp'
 
