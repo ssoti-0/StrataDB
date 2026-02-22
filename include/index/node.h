@@ -59,11 +59,26 @@ public:
     static std::unique_ptr<LeafNode> deserialize_leaf(const Page& page);
 };
 
+// Internal Node - stores keys as separators and child page pointers (for N keys there are N+1 children)
 class InternalNode : public Node {
 
 private:
-    
-}
+    // ORDER + 1 because we need one more child than keys
+    std::array<page_id_t, ORDER +1> children_{};
+
+public: 
+    InternalNode() : Node(false) {}
+
+    page_id_t child_at(int index) const {return children_[index];}
+
+    //Find which child to follow for a given key.
+    int find_child_index(int32_t key) const;
+
+    void insert_key_child(int32_t key, page_id_t right_child);
+
+    void serialize(Page& page) const override;
+    static std::unique_ptr<InternalNode> deserialize_internal(const Page& page);
+};
 
 }
 
