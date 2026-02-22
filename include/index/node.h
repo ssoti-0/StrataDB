@@ -37,7 +37,33 @@ public:
     static std::unique_ptr<Node> deserialize(const Page& page); 
 
 };
+// Leaf Node - stores key-value pairs in sorted oredr  (leaves are linked with next_leaf_)
+class LeafNode : public Node {
 
+private:
+    std::array<int32_t, ORDER> values_{};
+    page_id_t next_leaf_=0; //Page Id of next leaf 
+
+public:
+    LeafNode() : Node (true) {}
+
+    int32_t value_at(int index) const { return values_[index]; }
+    page_id_t next_leaf() const { return next_leaf_;}
+
+    // Search for a key, return index if found, -1 otherwise
+    int find_key(int32_t key) const;
+
+    void insert(int32_t key, int32_t value);
+
+    void serialize(Page& page) const override;
+    static std::unique_ptr<LeafNode> deserialize_leaf(const Page& page);
+};
+
+class InternalNode : public Node {
+
+private:
+    
+}
 
 }
 
