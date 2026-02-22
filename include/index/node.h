@@ -9,8 +9,8 @@
 
 namespace stratadb {
 
-//Max keys per node. Using 3 for now so splits happen fast during testing.
-constexpr int ORDER = 3;
+//Max keys per node. 
+constexpr int ORDER = 4;
 
 //Each node is one 4096-byte page on disk.
 class Node {

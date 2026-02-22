@@ -9,6 +9,8 @@ It is a standard indexing structure in databases (MySQL, SQLite, PostgreSQL)
 - **Range queries** - linked leaf nodes
 - **Self-balancing** - it maintains height automatically
 
-## THings to reconsider
+## Order 
 
-ORDER (max keys per node) - for now 3 but splits midpoint results in odd numbers (so i think i would change to 4)
+Decided to do ORDER = 4 as it gives 4 keys and 5 childeren, which would be better fro the demonstration of the branching structure of the B+ tree.
+
+## Things to reconsider
