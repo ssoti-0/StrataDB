@@ -20,7 +20,8 @@ namespace stratadb {
     }
 
     void LeafNode::serialize(Page& page) const {
-        
+        page.fill(0);
+
         std::size_t offset = 0;
         uint32_t is_leaf_raw = 1;
         std::memcpy(page.data() + offset, &is_leaf_raw, sizeof(uint32_t));
@@ -70,13 +71,20 @@ namespace stratadb {
         return -1;
     }
 
-    void InternalNode::serialize(Page& page) const {
-         //To do
+    void LeafNode::insert(int32_t key, int32_t value) {
+        int pos = 0;
+        while (pos < static_cast<int>(num_keys_) && keys_[pos] < key) {
+            ++pos;
+        }
+    }
 
+    void InternalNode::serialize(Page& page) const {
+        
     }
 
     std::unique_ptr<InternalNode> InternalNode::deserialize_internal(const Page& page) {
         return std::make_unique<InternalNode>();
          //To do
     }
+
 }

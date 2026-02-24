@@ -71,6 +71,8 @@ public:
 
     page_id_t child_at(int index) const {return children_[index];}
 
+    void set_child(int index, page_id_t page_id) {children_[index] = page_id; }
+
     //Find which child to follow for a given key.
     int find_child_index(int32_t key) const;
 
