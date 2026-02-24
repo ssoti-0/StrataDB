@@ -1,6 +1,7 @@
 #include "index/node.h"
 #include "storage/disk_manager.h"
 
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 
@@ -37,8 +38,14 @@ namespace stratadb {
     }
 
     std::unique_ptr<LeafNode> LeafNode::deserialize_leaf(const Page& page) {
-        return std::make_unique<LeafNode>();
-         //To do
+       auto node = std::make_unique<LeafNode>();
+       std::size_t offset = 0;
+
+       offset += sizeof(uint32_t);
+
+       std::memcpy(&node_>num_keys_, page.data() + offset, sizeof(uint32_t));
+       offset += sizeof(uint32_t);
+         
     }
 
     int LeafNode::find_key(int32_t key) const {
