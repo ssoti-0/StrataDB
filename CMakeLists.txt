@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(stratadb
     src/main.cpp 
     src/storage/disk_manager.cpp
+    src/index/node.cpp
 )
 
 target_include_directories(stratadb PRIVATE ${PROJECT_SOURCE_DIR}/include)
