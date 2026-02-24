@@ -5,6 +5,7 @@
 #include <cstring>
 #include <stdexcept>
 
+
 namespace stratadb {
 
     std::unique_ptr<Node> Node::deserialize(const Page& page) {
@@ -46,6 +47,12 @@ namespace stratadb {
        std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
        offset += sizeof(uint32_t);
 
+        if (node->num_keys_ > ORDER) {
+            throw std::runtime_error("LeafNode::deserialize: num_keys " + std::to_string(node->num_keys_) + " esceeds ORDER" + std::to_string(ORDER));
+        }
+    
+       std::memcpy(node->keys_.data(), page.data() + offset, ORDER * sizeof(int32_t));
+ 
        std::memcpy(node->values_.data(), page.data() + offset, ORDER * sizeof(int32_t));
        offset += ORDER * sizeof(int32_t);
 
