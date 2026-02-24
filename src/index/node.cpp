@@ -43,9 +43,15 @@ namespace stratadb {
 
        offset += sizeof(uint32_t);
 
-       std::memcpy(&node_>num_keys_, page.data() + offset, sizeof(uint32_t));
+       std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
        offset += sizeof(uint32_t);
-         
+
+       std::memcpy(node->values_.data(), page.data() + offset, ORDER * sizeof(int32_t));
+       offset += ORDER * sizeof(int32_t);
+
+       std::memcpy(&node->next_leaf_, page.data() + offset, sizeof(uint32_t));
+
+       return node;
     }
 
     int LeafNode::find_key(int32_t key) const {
