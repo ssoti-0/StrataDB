@@ -76,6 +76,15 @@ namespace stratadb {
         while (pos < static_cast<int>(num_keys_) && keys_[pos] < key) {
             ++pos;
         }
+
+        for (int i = static_cast<int>(num_keys_); i > pos; --i) {
+            keys_[i] = keys_[i-1];
+            values_[i] = values_[i-1];
+        }
+
+        keys_[pos] = key;
+        values_[pos] = value;
+        ++num_keys_;
     }
 
     void InternalNode::serialize(Page& page) const {
