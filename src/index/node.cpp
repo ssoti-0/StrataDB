@@ -62,7 +62,11 @@ namespace stratadb {
     }
 
     int LeafNode::find_key(int32_t key) const {
-        //To do
+        for (uint32_t i = 0; i <= num_keys_; ++i) {
+            if (keys_[i] == key) {
+                return static_cast<int>(i);
+            }
+        }
         return -1;
     }
 
