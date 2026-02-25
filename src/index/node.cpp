@@ -88,12 +88,71 @@ namespace stratadb {
     }
 
     void InternalNode::serialize(Page& page) const {
+        page.fill(0);
+
+        std::size_t offset = 0;
+
+        uint32_t is_leaf_raw = 0;
+        std::memcpy(page.data() + offset, &is_leaf_raw, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        std::memcpy(page.data() + offset, &num_keys_, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        std::memcpy(page.data() + offset, keys_.data(), ORDER * sizeof(int32_t));
+        offset += ORDER * sizeof(int32_t);
+
+        std::memcpy(page.data() + offset, children_.data(), (ORDER + 1) * sizeof(uint32_t));
         
     }
 
     std::unique_ptr<InternalNode> InternalNode::deserialize_internal(const Page& page) {
-        return std::make_unique<InternalNode>();
-         //To do
+        auto node = std::make_unique<InternalNode>();
+        std::size_t offset = 0;
+
+        offset += sizeof(uint32_t);
+
+        std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
+        offset += sizeof (uint32_t);
+
+        if (node->num_keys_ > ORDER) {
+            throw std::runtime_error ("Internal Node:: desserialize: num_keys " + std::to_string(node->num_keys_) + " exceeds ORDER " + std::to_string(ORDER));
+        }
+
+        std::memcpy(node->keys_.data(), page.data() + offset, ORDER * sizeof(int32_t));
+        offset += ORDER * sizeof(int32_t);
+        std::memcpy(node->children_.data(), page.data() + offset, (ORDER + 1) * sizeof(uint32_t));
+
+        return node;
+    }
+
+    int InternalNode::find_child_index(int32_t key) const {
+
+        for (uint32_t i = 0; i < num_keys_; ++i) {
+            if(key <= keys_[i]) {
+                return static_cast<int>(i);
+            }
+        }
+        return static_cast<int>(num_keys_);
+    }
+
+    void InternalNode::insert_key_child(int32_t key, page_id_t right_child) {
+        int pos = 0;
+        while (pos < static_cast<int>(num_keys_) && keys_[pos] < key) {
+            ++pos;
+        }
+
+        for (int i = static_cast<int>(num_keys_); i > pos; --i) {
+            keys_[i] = keys_[i-1];
+        }
+
+        for (int i = static_cast<int>(num_keys_) + 1; i > pos + 1; --i) {
+            children_[i] = children_[i-1];
+        }
+
+        keys_[pos] = key;
+        children_[pos + 1] = right_child;
+        ++num_keys_;
     }
 
 }
