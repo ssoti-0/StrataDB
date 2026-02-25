@@ -1,4 +1,5 @@
 #include "storage/disk_manager.h"
+#include "index/node.h"
 
 #include <cstring>
 #include <iostream>
@@ -31,6 +32,7 @@ static void check_throws(Func&& func, const std::string& description) {
     }
 }
 
+//Tests for DiskManager
 static void test_disk_manager() {
 
     const std::string test_file = "test_diskmanager.db";
@@ -94,7 +96,49 @@ static void test_disk_manager() {
     }
 
     std::remove(test_file.c_str());
-    
+
+}
+
+//Node tests
+static void test_leaf_node() {
+    std::cout << "\nLeaf Node tests\n";
+
+    //Inserting keys out of order - i expect for them to end up sorted
+    stratadb::LeafNode leaf;
+    leaf.insert(30, 300);
+    leaf.insert(10, 100);
+    leaf.insert(20, 200);
+
+    check(leaf.num_keys() == 3, "Leaf has 3 keys after 3 inserts");
+    check(leaf.key_at(0) == 10, "keys sorted: index 0 is 10");
+    check(leaf.key_at(1) == 20, "keys sorted: index 1 is 20");
+    check(leaf.key_at(2) == 30, "keys sorted: index 2 is 30");
+
+    check(leaf.find_key(10) == 0, "find_key(10) returns 0");
+    check(leaf.find_key(20) == 1, "find_key(20) returns 1");
+    check(leaf.find_key(30) == 2, "find_key(30) returns 2");
+    check(leaf.find_key(99) == -1, "find_key(99) returns -1 (not found)");
+    check(leaf.value_at(0) == 100, "value at index 0 is 100");
+    check(leaf.find_key(2) == 300, "value at index 2 is 300");
+
+    //Serialization roundtrip (making sure that i can save the code to disk and get the same data back)
+    stratadb::Page page{};
+    leaf.serialize(page);
+
+    auto desirialized = stratadb::Node::deserialize(page);
+    check(desirialized->is_leaf(), "deserialized node is a leaf");
+    check(desirialized->num_keys() == 3, "desirialized leaf has 3 keys");
+
+    auto* leaf2 = static_cast<stratadb::LeafNode*>(desirialized.get());
+    check(leaf2->key_at(0) == 10, "roundtrip: key 0 is 10");
+    check(leaf2->key_at(2) == 30, "roundtrip: key 2 is 30");
+    check(leaf2->value_at(1) == 200, "roundtrip: value 1 is 200");
+    check(leaf2->find_key(20) == 1, "roundtrip: find_key still works");
+
+}
+
+static void test_internal_node() {
+
 }
 int main() {
 
