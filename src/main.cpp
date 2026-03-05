@@ -138,11 +138,47 @@ static void test_leaf_node() {
 }
 
 static void test_internal_node() {
+    std::cout << "\nInternalNode tests";
+
+
+    stratadb::InternalNode internal;
+    internal.set_child(0, 100);
+    internal.insert_key_child(10, 101);
+    internal.insert_key_child(20,102);
+    internal.insert_key_child(30, 103);
+
+    check(internal.num_keys() == 3, "internal has 3 keys");
+    check(internal.key_at(0) == 10, "key 0 is 10");
+    check(internal.key_at(1) == 20, "key 1 is 20");
+    check(internal.child_at(0) == 100, "child 0 is 100");
+    check(internal.child_at(3) == 103, "child 3 is 103");
+
+    check(internal.find_child_index(5) == 0, "key 5 -> child 0");
+    check(internal.find_child_index(15) == 1, "key 15 -> child 1");
+    check(internal.find_child_index(25) == 2, "key 25 -> child 2");
+    check(internal.find_child_index(35) == 3, "key 35 -> child 3");
+
+    stratadb::Page page{};
+    internal.serialize(page);
+
+    auto deserialized = stratadb::Node::deserialize(page);
+    check(!deserialized->is_leaf(), "deserialized node is internal");
+    check(deserialized->num_keys() == 3, "deserialized internal has 3 keys");
+
+    auto* int2 = static_cast<stratadb::InternalNode*>(deserialized.get());
+    check(int2->child_at(0) == 100, "roundtrip: child 0 is 100");
+    check(int2->child_at(2) == 102, "roundtrip: child 2 is 102");
+    check(int2->find_child_index(15) == 1, "roundtrip: find_child_index works");
+
 
 }
 int main() {
 
     test_disk_manager();
+
+    std::cout <<"Node tests";
+    test_leaf_node();
+    test_internal_node();
 
     std::cout << "\nResults: " << test_passed << " passed, " << test_failed << " failed\n";
     
