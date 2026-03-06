@@ -49,6 +49,9 @@ public:
 
     int32_t value_at(int index) const { return values_[index]; }
     page_id_t next_leaf() const { return next_leaf_;}
+    bool is_full() const {return num_keys_ == ORDER; }
+
+    void set_next_leaf(page_id_t page_id) { next_leaf_ = page_id; }
 
     // Search for a key, return index if found, -1 otherwise
     int find_key(int32_t key) const;
@@ -70,6 +73,7 @@ public:
     InternalNode() : Node(false) {}
 
     page_id_t child_at(int index) const {return children_[index];}
+    bool is_full() const { return num_keys_ == ORDER; }
 
     void set_child(int index, page_id_t page_id) {children_[index] = page_id; }
 
