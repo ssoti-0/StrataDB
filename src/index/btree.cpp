@@ -53,7 +53,7 @@ void BPlusTree::write_node(page_id_t page_id, const Node& node) {
 
 // Search
 
-bool BPlusTree::search(int32_t ket, int32_t& value_out) const {
+bool BPlusTree::search(int32_t key, int32_t& value_out) const {
     if (is_empty()) {
         return false;
     }
