@@ -77,6 +77,22 @@ bool BPlusTree::search(int32_t key, int32_t& value_out) const {
     return false;
 }
 
-// Insert - soon
+// Insert
+
+void BPlusTree::insert(int32_t key, int32_t value) {
+    if (is_empty()) {
+        LeafNode root_leaf;
+        root_leaf.insert(key, value);
+
+        page_id_t root_page = disk_manager_.allocate_page();
+        write_node(root_page, root_leaf);
+        write_root_page_id(root_page);
+        return;
+
+    }
+
+    // ToDo: hanle non-empty tree
+    
+}
 
 }
