@@ -9,6 +9,7 @@ add_executable(stratadb
     src/main.cpp 
     src/storage/disk_manager.cpp
     src/index/node.cpp
+    src/index/btree.cpp
 )
 
 target_include_directories(stratadb PRIVATE ${PROJECT_SOURCE_DIR}/include)

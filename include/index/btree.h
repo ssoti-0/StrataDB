@@ -35,7 +35,7 @@ class BPlusTree {
     void insert(int32_t key, int32_t value);
 
     bool is_empty() const { return root_page_id_ == EMPTY_TREE_SENTINEL; }
-    page_id_t root_oage_id() const { return root_page_id_; }
+    page_id_t root_page_id() const { return root_page_id_; }
 };
 }
 

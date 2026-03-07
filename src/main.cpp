@@ -1,5 +1,6 @@
 #include "storage/disk_manager.h"
 #include "index/node.h"
+#include "index/btree.h"
 
 #include <cstring>
 #include <iostream>
@@ -172,6 +173,29 @@ static void test_internal_node() {
 
 
 }
+
+//B+ Tree tests
+
+static void test_btree_empty() {
+    const std::string test_file = "test_btree.db";
+    std::remove(test_file.c_str());
+
+    std::cout<<"\nB+Tree: empty tree";
+    stratadb::DiskManager dm(test_file);
+    stratadb::BPlusTree tree(dm);
+
+    check(tree.is_empty(), "new tree is empty");
+    check(tree.root_page_id() == 0, "empty tree has root_page_id = 0 (sentinel)");
+
+    int32_t val = -1;
+    check(!tree.search(42, val), "search in empty tree returns false");
+
+    // Metadata page should exist.
+    check(dm.num_pages() == 1, "metadata page allocated");
+
+     std::remove(test_file.c_str());
+
+}
 int main() {
 
     test_disk_manager();
@@ -179,6 +203,9 @@ int main() {
     std::cout <<"Node tests";
     test_leaf_node();
     test_internal_node();
+
+    std::cout << "B+ Tree Tests";
+      test_btree_empty();
 
     std::cout << "\nResults: " << test_passed << " passed, " << test_failed << " failed\n";
     
