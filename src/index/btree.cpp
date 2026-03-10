@@ -77,7 +77,7 @@ bool BPlusTree::search(int32_t key, int32_t& value_out) const {
     return false;
 }
 
-// Insert
+// Insert O(log n)
 
 void BPlusTree::insert(int32_t key, int32_t value) {
     if (is_empty()) {
@@ -91,7 +91,46 @@ void BPlusTree::insert(int32_t key, int32_t value) {
 
     }
 
-    
+    SplitResult result = insert_recursive(root_page_id_, kehy, value);
+
+    if(result.did_split) {
+
+        InternalNode new_root;
+        new_root.set_child(0, root_page_id_);
+        new_root.insert_key_child(result.promoted_key, result.new_page_id);
+
+        page_id_t new_root_page = disk_manager_.allocate_page();
+        write_node(new_root_page, new_root);
+        write_root_page_id(new_root_page);
+    }
+   
+}
+
+// Insert Incursive
+
+SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int32_t value) {
+    auto node = read_node(node_page_id);
+
+    if (node->is_leaf()) {
+
+        auto*leaf = static_cast<LeafNode*>(node.get());
+
+        int existing = leaf->find_key(key);
+        if (existing >= 0) {
+            LeafNode updated;
+            updated.set_next_leaf(leaf->next_leaf());
+            for (uint32_t i = 0; i < leaf-> num_keys(); ++i) {
+                if (static_cast<int>(i) == existing) {
+                    updated.insert(leaf->key_at(i), value);
+                } else {
+                    updated.insert(leaf->key_at(i), leaf->value_at(i));
+                }
+            }
+            write_node(node_page_id, updated);
+            return SplitResult{};
+        }
+        
+    }
 }
 
 }
