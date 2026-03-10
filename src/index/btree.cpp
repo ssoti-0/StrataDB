@@ -129,8 +129,39 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
             write_node(node_page_id, updated);
             return SplitResult{};
         }
-        
+
+        if (!leaf->is_full()) {
+            leaf->insert(key, value);
+            write_node(node_page_id, *leaf);
+            return SplitResult{};
+        }
+        return split_leaf(*leaf, node_page_id, key, value);
     }
+
+    auto* internal = static_cast<InternalNode*>(node.get());
+
+    int child_idx = internal->find_child_index(key);
+    page_id_t child_page = internal->child_at(child_idx);
+
+    SplitResult child_result = insert_recursive(child_page, key, value);
+
+    if (!child_result.did_split) {
+        
+        return SplitResult{}; 
+    }
+
+    if (!internal->is_full()) {
+        internal->insert_key_child(child_result.promoted_key, child_result.new_page_id);
+
+        write_node(node_page_id, *internal);
+        return SplitResult{};
+    }
+
+    return split_internal(*internal, node_page_id, child_result.promoted_key, child_result.new_page_id);
+
+
+
+
 }
 
 }
