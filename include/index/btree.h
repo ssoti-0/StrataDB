@@ -15,6 +15,12 @@ namespace stratadb {
     //All of the data lives on disk; nodes are read into memory, modified and written back; 
     //Each operation performs O(log n) reads/writes.
 
+struct SplitResult {
+    bool did_split = false;
+    int32_t promoted_key = 0;
+    page_id_t new_page_id = 0;
+};
+
 class BPlusTree {
     private:
     DiskManager& disk_manager_;
@@ -25,6 +31,12 @@ class BPlusTree {
 
     std::unique_ptr<Node> read_node(page_id_t page_id) const;
     void write_node(page_id_t page_id, const Node& node);
+
+    SplitResult insert_recursive(page_id_t node_page_id, int32_t key, int32_t value);
+
+    SplitResult split_leaf(LeafNode& leaf, page_id_t node_page_id, int32_t key, int32_t value);
+
+    SplitResult split_internal(InternalNode& node, page_id_t node_page_id, int32_t key, page_id_t right_child);
 
     public:
     //Init. of B+ tree

@@ -91,26 +91,6 @@ void BPlusTree::insert(int32_t key, int32_t value) {
 
     }
 
-    auto node = read_node(root_page_id_);
-    auto* leaf = static_cast<LeafNode*>(node.get());
-    
-    int existing = leaf->find_key(key);
-    if (existing >= 0) {
-
-        LeafNode updated;
-        for (uint32_t i = 0; i < leaf->num_keys(); ++i) {
-            if (static_cast<int>(i) == existing) {
-                updated.insert(leaf->key_at(i), value);
-            } 
-            else {
-                updated.insert(leaf->key_at(i), leaf->value_at(i));
-            }
-        }
-        write_node(root_page_id_, updated);
-        return;
-    }
-    leaf->insert(key, value);
-    write_node(root_page_id_, *leaf);
     
 }
 
