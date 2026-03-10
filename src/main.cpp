@@ -196,6 +196,49 @@ static void test_btree_empty() {
      std::remove(test_file.c_str());
 
 }
+
+static void test_btree_first_insert() {
+    const std::string test_file = "test_btree.db";
+    std::remove(test_file.c_str());
+
+    std::cout << "\nTest: for first insert";
+    stratadb::DiskManager dm(test_file);
+    stratadb::BPlusTree tree(dm);
+
+    tree.insert(10, 100);
+    check(!tree.is_empty(), "tree not empty after insert");
+    check(tree.root_page_id() != 0, "root page changed from sentinel");
+
+    int32_t val = -1;
+    check(tree.search(10, val), "search finds key 10");
+    check(val == 100, "value for key 10 is 100");
+    check(!tree.search(99, val), "non-existent key 99 not found");
+
+    std::remove(test_file.c_str());
+}
+
+static void test_btree_multi_insert() {
+      const std::string test_file = "test_btree.db";
+      std::remove(test_file.c_str());
+
+      std::cout << "\n[Test: multiple inserts no split]\n";
+      stratadb::DiskManager dm(test_file);
+      stratadb::BPlusTree tree(dm);
+
+      tree.insert(30, 300);
+      tree.insert(10, 100);
+      tree.insert(40, 400);
+      tree.insert(20, 200);
+
+      int32_t val = -1;
+      check(tree.search(10, val) && val == 100, "key 10 → 100");
+      check(tree.search(20, val) && val == 200, "key 20 → 200");
+      check(tree.search(30, val) && val == 300, "key 30 → 300");
+      check(tree.search(40, val) && val == 400, "key 40 → 400");
+
+      std::remove(test_file.c_str());
+  }
+
 int main() {
 
     test_disk_manager();
@@ -206,6 +249,7 @@ int main() {
 
     std::cout << "B+ Tree Tests";
       test_btree_empty();
+      test_btree_first_insert();
 
     std::cout << "\nResults: " << test_passed << " passed, " << test_failed << " failed\n";
     

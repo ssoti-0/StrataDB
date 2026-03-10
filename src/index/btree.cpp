@@ -91,6 +91,11 @@ void BPlusTree::insert(int32_t key, int32_t value) {
 
     }
 
+    auto node = read_node(root_page_id_);
+    auto* leaf = static_cast<LeafNode*>(node.get());
+    leaf->insert(key, value);
+    write_node(root_page_id_, *leaf);
+
     // ToDo: hanle non-empty tree
     
 }
