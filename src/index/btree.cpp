@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <stdexcept>
+#include <iostream>
 
 
 
@@ -74,10 +75,16 @@ bool BPlusTree::search(int32_t key, int32_t& value_out) const {
     }
 
     auto* leaf = static_cast<LeafNode*>(node.get());
-    int idx = leaf->find_key(key);
-    if (idx >= 0) {
-        value_out = leaf->value_at(idx);
-        return true;
+      std::cout << "  leaf page " << current_page << " keys:";
+      for (uint32_t i = 0; i < leaf->num_keys(); ++i) {
+          std::cout << " " << leaf->key_at(i);
+      }
+      std::cout << "\n";
+
+      int idx = leaf->find_key(key);
+      if (idx >= 0) {
+          value_out = leaf->value_at(idx);
+          return true;
     }
     return false;
 }
