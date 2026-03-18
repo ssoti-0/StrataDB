@@ -239,6 +239,32 @@ static void test_btree_multi_insert() {
       std::remove(test_file.c_str());
   }
 
+  static void test_btree_leaf_split() {
+      const std::string test_file = "test_btree.db";
+      std::remove(test_file.c_str());
+
+      std::cout << "\n[Test: leaf split]\n";
+      stratadb::DiskManager dm(test_file);
+      stratadb::BPlusTree tree(dm);
+
+      tree.insert(10, 100);
+      tree.insert(20, 200);
+      tree.insert(30, 300);
+      tree.insert(40, 400);
+      tree.insert(50, 500);  // 5th key — triggers split
+
+      int32_t val;
+      check(tree.search(10, val) && val == 100, "key 10 after split");
+      check(tree.search(20, val) && val == 200, "key 20 after split");
+      check(tree.search(30, val) && val == 300, "key 30 after split");
+      check(tree.search(40, val) && val == 400, "key 40 after split");
+      check(tree.search(50, val) && val == 500, "key 50 after split");
+
+      std::remove(test_file.c_str());
+  }
+
+//Add duplicate key test - maybe later on
+
 int main() {
 
     test_disk_manager();
@@ -246,6 +272,7 @@ int main() {
     std::cout <<"Node tests";
     test_leaf_node();
     test_internal_node();
+    test_btree_multi_insert();
 
     std::cout << "B+ Tree Tests";
       test_btree_empty();
