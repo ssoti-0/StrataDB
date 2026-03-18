@@ -31,11 +31,12 @@ class BPlusTree {
 
     std::unique_ptr<Node> read_node(page_id_t page_id) const;
     void write_node(page_id_t page_id, const Node& node);
-
+    // Insert algorithms
+    // Recursively inserts into the subtree rooted at note_page.
     SplitResult insert_recursive(page_id_t node_page_id, int32_t key, int32_t value);
-
+    // SPlits a full leaf and returns a new promoted key and new right page
     SplitResult split_leaf(LeafNode& leaf, page_id_t node_page_id, int32_t key, int32_t value);
-
+    // Splits a full inernal node and returns promoted key and new right page 
     SplitResult split_internal(InternalNode& node, page_id_t node_page_id, int32_t key, page_id_t right_child);
 
     public:
