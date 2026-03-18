@@ -1,7 +1,6 @@
 #include "index/node.h"
 #include "storage/disk_manager.h"
 
-#include <iostream>
 #include <algorithm>
 #include <cstring>
 #include <stdexcept>
@@ -128,22 +127,13 @@ namespace stratadb {
     }
 
     int InternalNode::find_child_index(int32_t key) const {
-      std::cout << "    [find_child] key=" << key << " separators:";
       for (uint32_t i = 0; i < num_keys_; ++i) {
-          std::cout << " " << keys_[i];
-      }
-      std::cout << "\n";
-
-      for (uint32_t i = 0; i < num_keys_; ++i) {
-          if (key <= keys_[i]) {
-              std::cout << "    [find_child] " << key << " <= "
-                        << keys_[i] << " → child " << i << "\n";
+          if (key < keys_[i]) {
               return static_cast<int>(i);
           }
       }
-      std::cout << "    [find_child] → rightmost child " << num_keys_ << "\n";
       return static_cast<int>(num_keys_);
-    }
+  }
 
 
     void InternalNode::insert_key_child(int32_t key, page_id_t right_child) {
