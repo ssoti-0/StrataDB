@@ -209,4 +209,44 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
   }
 
 
+  SplitResult BPlusTree::split_leaf(LeafNode& leaf, page_id_t leaf_page_id,
+                                    int32_t key, int32_t value) {
+      std::array<int32_t, ORDER + 1> all_keys{};
+      std::array<int32_t, ORDER + 1> all_values{};
+      int insert_pos = 0;
+      while (insert_pos < ORDER && leaf.key_at(insert_pos) < key) {
+          ++insert_pos;
+      }
+
+      for (int i = 0, src = 0; i < ORDER + 1; ++i) {
+          if (i == insert_pos) {
+              all_keys[i] = key;
+              all_values[i] = value;
+          } else {
+              all_keys[i] = leaf.key_at(src);
+              all_values[i] = leaf.value_at(src);
+              ++src;
+          }
+      }
+
+      int mid = (ORDER + 1) / 2;
+
+      LeafNode left;
+      LeafNode right;
+
+      for (int i = 0; i < mid; ++i) {
+          left.insert(all_keys[i], all_values[i]);
+      }
+      for (int i = mid; i < ORDER + 1; ++i) {
+          right.insert(all_keys[i], all_values[i]);
+      }
+
+      page_id_t right_page = disk_manager_.allocate_page();
+      write_node(leaf_page_id, left);
+      write_node(right_page, right);
+
+      return SplitResult{true, all_keys[mid], right_page};
+  }
+
+
 }
