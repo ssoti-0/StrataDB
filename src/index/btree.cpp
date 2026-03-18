@@ -242,8 +242,12 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
       }
 
       page_id_t right_page = disk_manager_.allocate_page();
+      right.set_next_leaf(leaf.next_leaf());
+      left.set_next_leaf(right_page);
+
       write_node(leaf_page_id, left);
       write_node(right_page, right);
+
 
       return SplitResult{true, all_keys[mid], right_page};
   }
