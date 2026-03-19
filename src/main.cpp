@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 
 static int test_passed = 0;
@@ -261,6 +262,52 @@ static void test_btree_multi_insert() {
       }
       check(all_found, "all 25 sequential keys found");
       std::cout << "    (tree uses " << dm.num_pages() << " pages)\n";
+
+      std::remove(test_file.c_str());
+  }
+
+  static void test_btree_reverse() {
+      const std::string test_file = "test_btree.db";
+      std::remove(test_file.c_str());
+
+      std::cout << "\n[Test: reverse-order inserts]\n";
+      stratadb::DiskManager dm(test_file);
+      stratadb::BPlusTree tree(dm);
+
+      for (int i = 20; i >= 1; --i) {
+          tree.insert(i, i * 100);
+      }
+
+      bool all_found = true;
+      for (int i = 1; i <= 20; ++i) {
+          int32_t val;
+          if (!tree.search(i, val) || val != i * 100) all_found = false;
+      }
+      check(all_found, "all 20 reverse-inserted keys found");
+
+      std::remove(test_file.c_str());
+  }
+
+  static void test_btree_random_order() {
+      const std::string test_file = "test_btree.db";
+      std::remove(test_file.c_str());
+
+      std::cout << "\n[Test: random-order inserts]\n";
+      stratadb::DiskManager dm(test_file);
+      stratadb::BPlusTree tree(dm);
+
+      std::vector<int> keys = {15, 3, 22, 8, 19, 1, 30, 12, 25, 6,
+                               28, 17, 10, 27, 5, 20, 14, 2, 24, 9};
+      for (int k : keys) {
+          tree.insert(k, k * 11);
+      }
+
+      bool all_found = true;
+      for (int k : keys) {
+          int32_t val;
+          if (!tree.search(k, val) || val != k * 11) all_found = false;
+      }
+      check(all_found, "all 20 randomly-ordered keys found");
 
       std::remove(test_file.c_str());
   }
