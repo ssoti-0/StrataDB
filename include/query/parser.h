@@ -39,8 +39,37 @@ enum class TokenType {
 
 struct Token {
     TokenType type;
-    std::string value;   // original text (e.g. "INSERT", "my_table", "42")
-    std::size_t position; // character offset in the input string
+    std::string value;   
+    std::size_t position; 
 };
+
+std::vector<Token> tokenize(const std::string& sql);
+
+  class Parser {
+  public:
+    static Statement parse(const std::string& sql);
+
+  private:
+      explicit Parser(std::vector<Token> tokens);
+
+    CreateTableStmt parse_create_table();
+    InsertStmt parse_insert();
+    SelectStmt parse_select();
+    DeleteStmt parse_delete();
+
+    const Token& current() const;
+    const Token& advance();
+    const Token& expect(TokenType expected, const std::string& context);
+    bool check(TokenType type) const;
+
+    bool match(TokenType type);
+
+    [[noreturn]] void error(const std::string& message) const;
+
+    std::vector<Token> tokens_;
+    std::size_t pos_; 
+};
+
+} 
 
 #endif
