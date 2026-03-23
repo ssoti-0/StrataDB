@@ -3,6 +3,7 @@
 #include <cctype>
 #include <stdexcept>
 #include <unordered_map>
+#include <algorithm>
 
 namespace stratadb {
 
@@ -21,6 +22,34 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"PRIMARY", TokenType::PRIMARY},
     {"KEY",     TokenType::KEY},
 };
+
+static std::string token_type_name(TokenType type) {
+    switch (type) {
+        case TokenType::CREATE:       return "CREATE";
+        case TokenType::TABLE:        return "TABLE";
+        case TokenType::INSERT:       return "INSERT";
+        case TokenType::INTO:         return "INTO";
+        case TokenType::VALUES:       return "VALUES";
+        case TokenType::SELECT:       return "SELECT";
+        case TokenType::FROM:         return "FROM";
+        case TokenType::WHERE:        return "WHERE";
+        case TokenType::DELETE:       return "DELETE";
+        case TokenType::INT:          return "INT";
+        case TokenType::PRIMARY:      return "PRIMARY";
+        case TokenType::KEY:          return "KEY";
+        case TokenType::IDENTIFIER:   return "identifier";
+        case TokenType::INTEGER:      return "integer";
+        case TokenType::LPAREN:       return "'('";
+        case TokenType::RPAREN:       return "')'";
+        case TokenType::COMMA:        return "','";
+        case TokenType::EQUALS:       return "'='";
+        case TokenType::STAR:         return "'*'";
+        case TokenType::SEMICOLON:    return "';'";
+        case TokenType::END_OF_INPUT: return "end of input";
+    }
+    return "unknown";
+}
+
 
 std::vector<Token> tokenize(const std::string& sql) {
     std::vector<Token> tokens;
@@ -76,5 +105,82 @@ std::vector<Token> tokenize(const std::string& sql) {
     tokens.push_back({TokenType::END_OF_INPUT, "", sql.size()});
     return tokens;
 }
+
+Parser::Parser(std::vector<Token> tokens) : tokens_(std::move(tokens)), pos_(0) {}
+
+Statement Parser::parse(const std::string& sql) {
+    auto tokens = tokenize(sql);
+    Parser parser(std::move(tokens));
+
+    Statement stmt;
+    if (parser.check(TokenType::CREATE)) {
+        stmt = parser.parse_create_table();
+    } else if (parser.check(TokenType::INSERT)) {
+        stmt = parser.parse_insert();
+    } else if (parser.check(TokenType::SELECT)) {
+        stmt = parser.parse_select();
+    } else if (parser.check(TokenType::DELETE)) {
+        stmt = parser.parse_delete();
+    } else {
+        parser.error("expected CREATE, INSERT, SELECT, or DELETE");
+    }
+
+    parser.match(TokenType::SEMICOLON);
+
+    if (!parser.check(TokenType::END_OF_INPUT)) {
+        parser.error("unexpected tokens after statement");
+    }
+
+    return stmt;
+}
+CreateTableStmt Parser::parse_create_table() {
+    expect(TokenType::CREATE, "statement start");
+    expect(TokenType::TABLE, "CREATE TABLE");
+
+    const Token& name_tok = expect(TokenType::IDENTIFIER, "table name after CREATE TABLE");
+    CreateTableStmt stmt;
+    stmt.table_name = name_tok.value;
+
+    expect(TokenType::LPAREN, "column definitions");
+
+    const Token& key_col = expect(TokenType::IDENTIFIER,"primary key column name");
+    stmt.key_column = key_col.value;
+    expect(TokenType::INT, "column type (must be INT)");
+    expect(TokenType::PRIMARY, "PRIMARY KEY constraint");
+    expect(TokenType::KEY, "PRIMARY KEY constraint");
+
+    expect(TokenType::COMMA, "between column definitions");
+
+    const Token& val_col = expect(TokenType::IDENTIFIER, "value column name");
+    stmt.value_column = val_col.value;
+    expect(TokenType::INT, "column type (must be INT)");
+
+    expect(TokenType::RPAREN, "end of column definitions");
+
+    return stmt;
+}
+InsertStmt Parser::parse_insert() {
+    expect(TokenType::INSERT, "statement start");
+    expect(TokenType::INTO, "INSERT INTO");
+
+    const Token& name_tok = expect(TokenType::IDENTIFIER,"table name after INSERT INTO");
+    InsertStmt stmt;
+    stmt.table_name = name_tok.value;
+
+    expect(TokenType::VALUES, "VALUES clause");
+    expect(TokenType::LPAREN, "value list");
+
+    const Token& key_tok = expect(TokenType::INTEGER,"first value (key) in VALUES");
+    stmt.key = std::stoi(key_tok.value);
+    expect(TokenType::COMMA, "between values");
+
+    const Token& val_tok = expect(TokenType::INTEGER,"second value (value) in VALUES");
+    stmt.value = std::stoi(val_tok.value);
+
+    expect(TokenType::RPAREN, "end of value list");
+
+    return stmt;
+  }
+
 
 } 
