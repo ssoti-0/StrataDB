@@ -180,7 +180,83 @@ InsertStmt Parser::parse_insert() {
     expect(TokenType::RPAREN, "end of value list");
 
     return stmt;
-  }
+}
 
+SelectStmt Parser::parse_select() { 
+    expect(TokenType::SELECT, "statement start");
+    expect(TokenType::STAR, "SELECT *");
+    expect(TokenType::FROM, "SELECT * FROM");
 
+    const Token& name_tok = expect(TokenType::IDENTIFIER,"table name after FROM");
+    SelectStmt stmt;
+    stmt.table_name = name_tok.value;
+
+    expect(TokenType::WHERE, "WHERE clause");
+    expect(TokenType::IDENTIFIER, "column name in WHERE clause");
+    expect(TokenType::EQUALS, "= in WHERE clause");
+
+    const Token& val_tok = expect(TokenType::INTEGER,"value in WHERE clause");
+    stmt.search_key = std::stoi(val_tok.value);
+
+    return stmt;
+}
+
+DeleteStmt Parser::parse_delete() {
+    expect(TokenType::DELETE, "statement start");
+    expect(TokenType::FROM, "DELETE FROM");
+
+    const Token& name_tok = expect(TokenType::IDENTIFIER,"table name after DELETE FROM");
+    DeleteStmt stmt;
+    stmt.table_name = name_tok.value;
+
+    expect(TokenType::WHERE, "WHERE clause");
+    expect(TokenType::IDENTIFIER, "column name in WHERE clause");
+    expect(TokenType::EQUALS, "= in WHERE clause");
+
+    const Token& val_tok = expect(TokenType::INTEGER,"value in WHERE clause");
+    stmt.search_key = std::stoi(val_tok.value);
+
+    return stmt;
+}
+
+const Token& Parser::current() const {
+      return tokens_[pos_];
+}
+
+const Token& Parser::advance() {
+    const Token& tok = tokens_[pos_];
+    if (pos_ < tokens_.size() - 1) {
+        ++pos_;
+    }
+    return tok;
+}
+
+const Token& Parser::expect(TokenType expected, const std::string& context) {
+    if (current().type != expected) {
+        throw std::runtime_error(
+            "Parser error at position " +
+            std::to_string(current().position) + ": expected " +
+            token_type_name(expected) + " (" + context + "), got " +
+            token_type_name(current().type) +
+            (current().value.empty() ? "" : " '" + current().value + "'"));
+    }
+    return advance();
+}
+
+bool Parser::check(TokenType type) const {
+return current().type == type;
+}
+
+bool Parser::match(TokenType type) {
+    if (check(type)) {
+        advance();
+        return true;
+    }
+    return false;
+}
+
+void Parser::error(const std::string& message) const {
+    throw std::runtime_error(
+        "Parser error at position " + std::to_string(current().position) + ": " + message + (current().value.empty() ? "" : " (got '" + current().value + "')"));
+}
 } 
