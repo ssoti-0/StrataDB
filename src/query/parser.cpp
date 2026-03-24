@@ -73,22 +73,29 @@ std::vector<Token> tokenize(const std::string& sql) {
         default: break;
     }
 
-    if (std::isdigit(static_cast<unsigned char>(sql[i]))) {
-        while (i < sql.size() &&
-            std::isdigit(static_cast<unsigned char>(sql[i]))) {
-            ++i;
-        }
-        tokens.push_back({TokenType::INTEGER,
-            sql.substr(start, i - start), start});
-            continue;
-        }
+    if (std::isdigit(static_cast<unsigned char>(sql[i])) ||
+              (sql[i] == '-' && i + 1 < sql.size() &&
+               std::isdigit(static_cast<unsigned char>(sql[i + 1])))) {
+              if (sql[i] == '-') ++i;  // consume the minus
+              while (i < sql.size() &&
+                     std::isdigit(static_cast<unsigned char>(sql[i]))) {
+                  ++i;
+              }
+              tokens.push_back({TokenType::INTEGER,
+                                sql.substr(start, i - start), start});
+              continue;
+          }
+
         if (std::isalpha(static_cast<unsigned char>(sql[i])) || sql[i] == '_') {
             while (i < sql.size() && (std::isalnum(static_cast<unsigned char>(sql[i])) || sql[i] == '_')) {
             ++i;
         }
         std::string word = sql.substr(start, i - start);
+        std::string upper = word;
+        std::transform(upper.begin(), upper.end(), upper.begin(),[](unsigned char c) { return std::toupper(c); });
+        auto it = KEYWORDS.find(upper);
 
-        auto it = KEYWORDS.find(word);
+
         if (it != KEYWORDS.end()) {
         tokens.push_back({it->second, word, start});
         } else {
@@ -97,9 +104,7 @@ std::vector<Token> tokenize(const std::string& sql) {
         continue;
         }
 
-        throw std::runtime_error(
-        "Lexer error at position " + std::to_string(i) +
-        ": unexpected character '" + sql[i] + "'");
+        throw std::runtime_error( "Lexer error at position " + std::to_string(i) + ": unexpected character '" + sql[i] + "'");
     }
 
     tokens.push_back({TokenType::END_OF_INPUT, "", sql.size()});

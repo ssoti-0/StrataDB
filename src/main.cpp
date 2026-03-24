@@ -1,12 +1,15 @@
 #include "storage/disk_manager.h"
 #include "index/node.h"
 #include "index/btree.h"
+#include "query/parser.h"
 
 #include <cstring>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <variant>
+
 
 
 static int test_passed = 0;
@@ -313,7 +316,27 @@ static void test_btree_multi_insert() {
   }
 
 
-//Add duplicate key test - maybe later on
+
+static void test_parser_smoke() {
+      std::cout << "\nParser Smoke Test\n";
+
+      auto stmt = stratadb::Parser::parse("CREATE TABLE students (id INT PRIMARY KEY, grade INT)");
+      auto& create = std::get<stratadb::CreateTableStmt>(stmt);
+      check(create.table_name == "students", "parsed table name");
+      check(create.key_column == "id", "parsed key column");
+      check(create.value_column == "grade", "parsed value column");
+
+      auto stmt2 = stratadb::Parser::parse("INSERT INTO students VALUES (42, 95)");
+      auto& insert = std::get<stratadb::InsertStmt>(stmt2);
+      check(insert.table_name == "students", "parsed INSERT table");
+      check(insert.key == 42, "parsed INSERT key");
+      check(insert.value == 95, "parsed INSERT value");
+
+      auto stmt3 = stratadb::Parser::parse("select * from students where id = 1");
+      check(std::holds_alternative<stratadb::SelectStmt>(stmt3),"lowercase keywords parse correctly");
+      std::cout << "  Parser works for uppercase SQL!\n";
+}
+
 
 int main() {
 
