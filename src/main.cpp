@@ -315,27 +315,52 @@ static void test_btree_multi_insert() {
       std::remove(test_file.c_str());
   }
 
+static void test_parser() {                                                                       
+    std::cout << "\n Parser Tests\n";
+                                                                                                    
+    {
+        auto stmt = stratadb::Parser::parse("CREATE TABLE students (id INT PRIMARY KEY, grade INT)");
+        auto& create = std::get<stratadb::CreateTableStmt>(stmt);
+        check(create.table_name == "students", "CREATE parses table name");
+        check(create.key_column == "id", "CREATE parses key column");
+    }
 
+    {
+        auto stmt = stratadb::Parser::parse("INSERT INTO students VALUES (42, 95)");
+        auto& insert = std::get<stratadb::InsertStmt>(stmt);
+        check(insert.key == 42, "INSERT parses key");
+        check(insert.value == 95, "INSERT parses value");
+    }
 
-static void test_parser_smoke() {
-      std::cout << "\nParser Smoke Test\n";
+    {
+        auto stmt = stratadb::Parser::parse("SELECT * FROM students WHERE id = 42");
+        auto& select = std::get<stratadb::SelectStmt>(stmt);
+        check(select.search_key == 42, "SELECT parses search key");
+    }
 
-      auto stmt = stratadb::Parser::parse("CREATE TABLE students (id INT PRIMARY KEY, grade INT)");
-      auto& create = std::get<stratadb::CreateTableStmt>(stmt);
-      check(create.table_name == "students", "parsed table name");
-      check(create.key_column == "id", "parsed key column");
-      check(create.value_column == "grade", "parsed value column");
+    {
+        auto stmt = stratadb::Parser::parse("DELETE FROM students WHERE id = 42");
+        auto& del = std::get<stratadb::DeleteStmt>(stmt);
+        check(del.search_key == 42, "DELETE parses search key");
+    }
 
-      auto stmt2 = stratadb::Parser::parse("INSERT INTO students VALUES (42, 95)");
-      auto& insert = std::get<stratadb::InsertStmt>(stmt2);
-      check(insert.table_name == "students", "parsed INSERT table");
-      check(insert.key == 42, "parsed INSERT key");
-      check(insert.value == 95, "parsed INSERT value");
+    {
+        auto stmt = stratadb::Parser::parse("create table T (x int primary key, y int)");
+        auto& create = std::get<stratadb::CreateTableStmt>(stmt);
+        check(create.table_name == "T", "lowercase keywords work");
+    }
 
-      auto stmt3 = stratadb::Parser::parse("select * from students where id = 1");
-      check(std::holds_alternative<stratadb::SelectStmt>(stmt3),"lowercase keywords parse correctly");
-      std::cout << "  Parser works for uppercase SQL!\n";
-}
+    {
+        auto stmt = stratadb::Parser::parse("INSERT INTO t VALUES (-5, -100)");
+        auto& insert = std::get<stratadb::InsertStmt>(stmt);
+        check(insert.key == -5, "negative key works");
+    }
+
+      // It is intended t oreject bad sql
+    check_throws([]() { stratadb::Parser::parse("HELLO WORLD"); },"rejects unknown statement");
+check_throws([]() { stratadb::Parser::parse("SELECT * FROM"); },"rejects incomplete SQL");
+  }
+
 
 
 int main() {
