@@ -63,3 +63,65 @@ std::string Executor::execute_select(const SelectStmt& stmt) {
 
     return "No row found with " + schema_.key_column + " = " + std::to_string(stmt.search_key) + ".";
 }
+
+std::string Executor::execute_delete(const DeleteStmt& stmt) {
+    require_table(stmt.table_name);
+    throw std::runtime_error("DELETE not implemented yet");
+}
+
+Schema Executor::read_schema() const {
+    Schema schema;
+
+    if (disk_manager_.num_pages() == 0) {
+        return schema;
+    }
+
+    Page page{};
+    disk_manager_.read_page(METADATA_PAGE_ID, page);
+
+    uint32_t init_flag = 0;
+    std::memcpy(&init_flag, page.data() + SCHEMA_INIT_OFFSET,sizeof(uint32_t));
+
+    if (init_flag != 1) {
+        return schema;
+    }
+
+    schema.initialized = true;
+    schema.table_name = std::string(page.data() + TABLE_NAME_OFFSET);
+    schema.key_column = std::string(page.data() + KEY_COLUMN_OFFSET);
+    schema.value_column = std::string(page.data() + VALUE_COLUMN_OFFSET);
+
+    return schema;
+}
+
+void Executor::write_schema(const Schema& schema) {
+    Page page{};
+
+    uint32_t init_flag = schema.initialized ? 1 : 0;
+    std::memcpy(page.data() + SCHEMA_INIT_OFFSET, &init_flag,sizeof(uint32_t));
+
+    std::memset(page.data() + TABLE_NAME_OFFSET, 0, IDENT_FIELD_SIZE);
+    std::memcpy(page.data() + TABLE_NAME_OFFSET,schema.table_name.c_str(),schema.table_name.size() + 1);
+
+    std::memset(page.data() + KEY_COLUMN_OFFSET, 0, IDENT_FIELD_SIZE);
+    std::memcpy(page.data() + KEY_COLUMN_OFFSET,schema.key_column.c_str(),schema.key_column.size() + 1);
+
+    std::memset(page.data() + VALUE_COLUMN_OFFSET, 0, IDENT_FIELD_SIZE);
+    std::memcpy(page.data() + VALUE_COLUMN_OFFSET,schema.value_column.c_str(),schema.value_column.size() + 1);
+
+    disk_manager_.write_page(METADATA_PAGE_ID, page);
+}
+
+void Executor::require_table(const std::string& table_name) const {
+    if (!schema_.initialized) {
+        throw std::runtime_error(
+        "No table exists. Use CREATE TABLE first.");
+    }
+    if (table_name != schema_.table_name) {
+        throw std::runtime_error(
+        "Table '" + table_name + "' does not exist. "
+        "The active table is '" + schema_.table_name + "'.");
+    }
+}
+
+}
