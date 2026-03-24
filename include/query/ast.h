@@ -5,6 +5,7 @@
 #include <string>
 #include <variant>
 
+namespace stratadb {
 struct CreateTableStmt {
     std::string table_name;
     std::string key_column;    

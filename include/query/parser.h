@@ -1,7 +1,7 @@
 #ifndef STRATADB_PARSER_H
 #define STRATADB_PARSER_H
 
-#include "include/query/ast.h"
+#include "query/ast.h"
 #include <cstddef>
 #include <string>
 #include <vector>

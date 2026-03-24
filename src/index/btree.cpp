@@ -170,87 +170,92 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
 
 }
 
- SplitResult BPlusTree::split_leaf(LeafNode& leaf, page_id_t leaf_page_id,
-                                    int32_t key, int32_t value) {
-      std::array<int32_t, ORDER + 1> all_keys{};
-      std::array<int32_t, ORDER + 1> all_values{};
+ SplitResult BPlusTree::split_leaf(LeafNode& leaf, page_id_t leaf_page_id,int32_t key, int32_t value) {
+    std::array<int32_t, ORDER + 1> all_keys{};
+    std::array<int32_t, ORDER + 1> all_values{};
 
-      int insert_pos = 0;
-      while (insert_pos < ORDER && leaf.key_at(insert_pos) < key) {
-          ++insert_pos;
-      }
-      for (int i = 0, src = 0; i < ORDER + 1; ++i) {
-          if (i == insert_pos) {
-              all_keys[i] = key;
-              all_values[i] = value;
-          } else {
-              all_keys[i] = leaf.key_at(src);
-              all_values[i] = leaf.value_at(src);
-              ++src;
-          }
-      }
-      int mid = (ORDER + 1) / 2;
+    int insert_pos = 0;
+    while (insert_pos < ORDER && leaf.key_at(insert_pos) < key) {
+        ++insert_pos;
+    }
+    for (int i = 0, src = 0; i < ORDER + 1; ++i) {
+        if (i == insert_pos) {
+            all_keys[i] = key;
+            all_values[i] = value;
+        } else {
+            all_keys[i] = leaf.key_at(src);
+            all_values[i] = leaf.value_at(src);
+            ++src;
+        }
+    }
+    int mid = (ORDER + 1) / 2;
 
-      LeafNode left;
-      LeafNode right;
+    LeafNode left;
+    LeafNode right;
 
-      for (int i = 0; i < mid; ++i) {
-          left.insert(all_keys[i], all_values[i]);
-      }
-      for (int i = mid; i < ORDER + 1; ++i) {
-          right.insert(all_keys[i], all_values[i]);
-      }
+    for (int i = 0; i < mid; ++i) {
+        left.insert(all_keys[i], all_values[i]);
+    }
+    for (int i = mid; i < ORDER + 1; ++i) {
+        right.insert(all_keys[i], all_values[i]);
+    }
 
-      page_id_t right_page = disk_manager_.allocate_page();
-      write_node(leaf_page_id, left);
-      write_node(right_page, right);
+    page_id_t right_page = disk_manager_.allocate_page();
+    right.set_next_leaf(leaf.next_leaf());
+    left.set_next_leaf(right_page);
+    write_node(leaf_page_id, left);
+    write_node(right_page, right);
 
-      return SplitResult{true, all_keys[mid], right_page};
-  }
+    return SplitResult{true, all_keys[mid], right_page};
+}
 
+SplitResult BPlusTree::split_internal(InternalNode& node,page_id_t node_page_id,int32_t key,page_id_t right_child) {
+    std::array<int32_t, ORDER + 1> all_keys{};
+    std::array<page_id_t, ORDER + 2> all_children{};
 
-  SplitResult BPlusTree::split_leaf(LeafNode& leaf, page_id_t leaf_page_id,
-                                    int32_t key, int32_t value) {
-      std::array<int32_t, ORDER + 1> all_keys{};
-      std::array<int32_t, ORDER + 1> all_values{};
-      int insert_pos = 0;
-      while (insert_pos < ORDER && leaf.key_at(insert_pos) < key) {
-          ++insert_pos;
-      }
+    int insert_pos = 0;
+    while (insert_pos < ORDER && node.key_at(insert_pos) < key) {
+        ++insert_pos;
+    }
 
-      for (int i = 0, src = 0; i < ORDER + 1; ++i) {
-          if (i == insert_pos) {
-              all_keys[i] = key;
-              all_values[i] = value;
-          } else {
-              all_keys[i] = leaf.key_at(src);
-              all_values[i] = leaf.value_at(src);
-              ++src;
-          }
-      }
+    for (int i = 0, src = 0; i < ORDER + 1; ++i) {
+        if (i == insert_pos) {
+            all_keys[i] = key;
+        } else {
+            all_keys[i] = node.key_at(src);
+            ++src;
+        }
+    }
 
-      int mid = (ORDER + 1) / 2;
+    for (int i = 0, src = 0; i < ORDER + 2; ++i) {
+        if (i == insert_pos + 1) {
+            all_children[i] = right_child;
+        } else {
+            all_children[i] = node.child_at(src);
+            ++src;
+        }
+    }
 
-      LeafNode left;
-      LeafNode right;
+    int mid = (ORDER + 1) / 2;
+    int32_t promoted_key = all_keys[mid];
 
-      for (int i = 0; i < mid; ++i) {
-          left.insert(all_keys[i], all_values[i]);
-      }
-      for (int i = mid; i < ORDER + 1; ++i) {
-          right.insert(all_keys[i], all_values[i]);
-      }
+    InternalNode left;
+    InternalNode right_node;
 
-      page_id_t right_page = disk_manager_.allocate_page();
-      right.set_next_leaf(leaf.next_leaf());
-      left.set_next_leaf(right_page);
+    left.set_child(0, all_children[0]);
+    for (int i = 0; i < mid; ++i) {
+        left.insert_key_child(all_keys[i], all_children[i + 1]);
+    }
 
-      write_node(leaf_page_id, left);
-      write_node(right_page, right);
+    right_node.set_child(0, all_children[mid + 1]);
+    for (int i = mid + 1; i < ORDER + 1; ++i) {
+        right_node.insert_key_child(all_keys[i], all_children[i + 1]);
+    }
 
+    page_id_t right_page = disk_manager_.allocate_page();
+    write_node(node_page_id, left);
+    write_node(right_page, right_node);
 
-      return SplitResult{true, all_keys[mid], right_page};
-  }
-
-
+    return SplitResult{true, promoted_key, right_page};
+}
 }
