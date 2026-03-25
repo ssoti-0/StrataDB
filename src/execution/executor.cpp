@@ -12,7 +12,9 @@ static constexpr std::size_t KEY_COLUMN_OFFSET   = 72;
 static constexpr std::size_t VALUE_COLUMN_OFFSET = 136;
 static constexpr std::size_t IDENT_FIELD_SIZE    = 64;
 
-Executor::Executor(DiskManager& disk_manager) : disk_manager_(disk_manager), tree_(disk_manager) {}
+Executor::Executor(DiskManager& disk_manager) : disk_manager_(disk_manager), tree_(disk_manager) {
+    schema_ = read_schema();
+}
 
 std::string Executor::execute(const Statement& stmt) {
     return std::visit([this](const auto& s) -> std::string {
@@ -96,6 +98,7 @@ Schema Executor::read_schema() const {
 
 void Executor::write_schema(const Schema& schema) {
     Page page{};
+    disk_manager_.read_page(METADATA_PAGE_ID, page);
 
     uint32_t init_flag = schema.initialized ? 1 : 0;
     std::memcpy(page.data() + SCHEMA_INIT_OFFSET, &init_flag,sizeof(uint32_t));

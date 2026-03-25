@@ -366,7 +366,7 @@ static void test_executor_smoke() {
       const std::string test_file = "test_exec.db";
       std::remove(test_file.c_str());
 
-      std::cout << "\n=== Executor Smoke Test ===\n";
+      std::cout << "\nExecutor Smoke Test\n";
       stratadb::DiskManager dm(test_file);
       stratadb::Executor exec(dm);
 
@@ -401,6 +401,10 @@ int main() {
     std::cout << "B+ Tree Tests";
       test_btree_empty();
       test_btree_first_insert();
+
+    std::cout <<"Parser Tests";
+    test_parser();
+    test_executor_smoke();
 
     std::cout << "\nResults: " << test_passed << " passed, " << test_failed << " failed\n";
     
