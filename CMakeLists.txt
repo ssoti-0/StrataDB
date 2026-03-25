@@ -11,6 +11,7 @@ add_executable(stratadb
     src/index/node.cpp
     src/index/btree.cpp
     src/query/parser.cpp
+    src/execution/executor.cpp
 )
 
 target_include_directories(stratadb PRIVATE ${PROJECT_SOURCE_DIR}/include)

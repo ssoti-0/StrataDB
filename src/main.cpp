@@ -2,6 +2,7 @@
 #include "index/node.h"
 #include "index/btree.h"
 #include "query/parser.h"
+#include "execution/executor.h"
 
 #include <cstring>
 #include <iostream>
@@ -360,6 +361,31 @@ static void test_parser() {
     check_throws([]() { stratadb::Parser::parse("HELLO WORLD"); },"rejects unknown statement");
 check_throws([]() { stratadb::Parser::parse("SELECT * FROM"); },"rejects incomplete SQL");
   }
+
+static void test_executor_smoke() {
+      const std::string test_file = "test_exec.db";
+      std::remove(test_file.c_str());
+
+      std::cout << "\n=== Executor Smoke Test ===\n";
+      stratadb::DiskManager dm(test_file);
+      stratadb::Executor exec(dm);
+
+      auto stmt1 = stratadb::Parser::parse(
+          "CREATE TABLE students (id INT PRIMARY KEY, grade INT)");
+      std::string result = exec.execute(stmt1);
+      check(result == "Table 'students' created.", "CREATE TABLE works");
+
+      auto stmt2 = stratadb::Parser::parse("INSERT INTO students VALUES (1, 95)");
+      check(exec.execute(stmt2) == "OK", "INSERT returns OK");
+
+      auto stmt3 = stratadb::Parser::parse(
+          "SELECT * FROM students WHERE id = 1");
+      result = exec.execute(stmt3);
+      check(result == "id | grade\n1 | 95", "SELECT returns correct row");
+
+      std::remove(test_file.c_str());
+ }
+
 
 
 
