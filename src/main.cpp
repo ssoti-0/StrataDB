@@ -362,31 +362,54 @@ static void test_parser() {
 check_throws([]() { stratadb::Parser::parse("SELECT * FROM"); },"rejects incomplete SQL");
   }
 
-static void test_executor_smoke() {
-      const std::string test_file = "test_exec.db";
-      std::remove(test_file.c_str());
+static std::string run_sql(stratadb::Executor& exec, const std::string& sql) {                 
+      auto stmt = stratadb::Parser::parse(sql);
+      return exec.execute(stmt);                                                                     
+}                                                                                                
 
-      std::cout << "\nExecutor Smoke Test\n";
-      stratadb::DiskManager dm(test_file);
-      stratadb::Executor exec(dm);
+static void test_executor() {
+    std::cout << "\nEnd-to-End Tests\n";
 
-      auto stmt1 = stratadb::Parser::parse(
-          "CREATE TABLE students (id INT PRIMARY KEY, grade INT)");
-      std::string result = exec.execute(stmt1);
-      check(result == "Table 'students' created.", "CREATE TABLE works");
+    // The basic workflow 
+    const std::string test_file = "test_e2e.db";
+    std::remove(test_file.c_str());
+    {
+        stratadb::DiskManager dm(test_file);
+        stratadb::Executor exec(dm);
 
-      auto stmt2 = stratadb::Parser::parse("INSERT INTO students VALUES (1, 95)");
-      check(exec.execute(stmt2) == "OK", "INSERT returns OK");
+        check(run_sql(exec, "CREATE TABLE students (id INT PRIMARY KEY, grade INT)") == "Table 'students' created.", "CREATE TABLE works");
+        check(run_sql(exec, "INSERT INTO students VALUES (1, 85)") == "OK","INSERT returns OK");
+        run_sql(exec, "INSERT INTO students VALUES (2, 92)");
+        run_sql(exec, "INSERT INTO students VALUES (3, 78)");
+        check(run_sql(exec, "SELECT * FROM students WHERE id = 1")== "id | grade\n1 | 85", "SELECT returns correct row");
+        check(run_sql(exec, "SELECT * FROM students WHERE id = 99")== "No row found with id = 99.", "SELECT missing key handled");
+        // Duplicate key update
+        run_sql(exec, "INSERT INTO students VALUES (1, 999)");
+        check(run_sql(exec, "SELECT * FROM students WHERE id = 1")== "id | grade\n1 | 999", "duplicate insert updates value");
+}
+std::cout << "\n[Persistence]\n";
+{
+    stratadb::DiskManager dm(test_file);
+    stratadb::Executor exec(dm);
+    check(run_sql(exec, "SELECT * FROM students WHERE id = 2")== "id | grade\n2 | 92", "data persists after reopen");
+    check(run_sql(exec, "INSERT INTO students VALUES (10, 500)") == "OK","INSERT after reopen works");
+    }
 
-      auto stmt3 = stratadb::Parser::parse(
-          "SELECT * FROM students WHERE id = 1");
-      result = exec.execute(stmt3);
-      check(result == "id | grade\n1 | 95", "SELECT returns correct row");
-
-      std::remove(test_file.c_str());
- }
-
-
+    // Error handling
+    std::cout << "\n[Errors]\n";
+    const std::string test_file2 = "test_e2e2.db";
+    std::remove(test_file2.c_str());
+    {
+        stratadb::DiskManager dm(test_file2);
+        stratadb::Executor exec(dm);
+        check_throws([&]() { run_sql(exec, "INSERT INTO t VALUES (1, 2)"); },"INSERT before CREATE throws");
+        run_sql(exec, "CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+        check_throws([&]() { run_sql(exec, "CREATE TABLE t2 (x INT PRIMARY KEY, y INT)"); },"second CREATE TABLE throws");
+        check_throws([&]() { run_sql(exec, "INSERT INTO wrong VALUES (1, 2)"); },"wrong table name throws");
+    }
+    std::remove(test_file.c_str());
+    std::remove(test_file2.c_str());
+}
 
 
 int main() {
@@ -404,7 +427,8 @@ int main() {
 
     std::cout <<"Parser Tests";
     test_parser();
-    test_executor_smoke();
+    test_executor();
+
 
     std::cout << "\nResults: " << test_passed << " passed, " << test_failed << " failed\n";
     
