@@ -58,6 +58,8 @@ public:
 
     void insert(int32_t key, int32_t value);
 
+    bool remove_at(int index);
+
     void serialize(Page& page) const override;
     static std::unique_ptr<LeafNode> deserialize_leaf(const Page& page);
 };

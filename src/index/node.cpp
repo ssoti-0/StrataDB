@@ -87,6 +87,23 @@ namespace stratadb {
         ++num_keys_;
     }
 
+    bool LeafNode::remove_at(int index) {
+        if (index < 0 || index >= static_cast<int>(num_keys_)) {
+          return false;
+        }
+
+        for (int i = index; i < static_cast<int>(num_keys_) - 1; ++i) {
+          keys_[i] = keys_[i + 1];
+          values_[i] = values_[i + 1];
+        }
+
+        keys_[num_keys_ - 1] = 0;
+        values_[num_keys_ - 1] = 0;
+        --num_keys_;
+        return true;
+    }
+
+
     void InternalNode::serialize(Page& page) const {
         page.fill(0);
 
