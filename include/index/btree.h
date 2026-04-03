@@ -5,6 +5,8 @@
 #include "storage/disk_manager.h"
 
 #include <cstdint>
+#include <utility>
+#include <vector>
 
 namespace stratadb {
 
@@ -49,6 +51,7 @@ class BPlusTree {
 
     bool delete_key(int32_t key);
 
+    std::vector<std::pair<int32_t, int32_t>> scan_all() const;
     bool is_empty() const { return root_page_id_ == EMPTY_TREE_SENTINEL; }
     page_id_t root_page_id() const { return root_page_id_; }
 };

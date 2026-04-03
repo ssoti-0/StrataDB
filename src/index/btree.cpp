@@ -81,6 +81,33 @@ bool BPlusTree::search(int32_t key, int32_t& value_out) const {
       }
       return false;
   }
+std::vector<std::pair<int32_t, int32_t>> BPlusTree::scan_all() const {
+    std::vector<std::pair<int32_t, int32_t>> results;
+
+    if (is_empty()) {
+        return results;
+    }
+
+    auto node = read_node(root_page_id_);
+    while (!node->is_leaf()) {
+        auto* internal = static_cast<InternalNode*>(node.get());
+        node = read_node(internal->child_at(0));
+    }
+    while (true) {
+        auto* leaf = static_cast<LeafNode*>(node.get());
+        for (uint32_t i = 0; i < leaf->num_keys(); i++) {
+            results.emplace_back(leaf->key_at(i), leaf->value_at(i));
+        }
+
+        page_id_t next = leaf->next_leaf();
+        if (next == 0) {
+            break;
+        }
+        node = read_node(next);
+    }
+    return results;
+}
+
 
 bool BPlusTree::delete_key(int32_t key) {
       if (is_empty()) {
