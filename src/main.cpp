@@ -316,6 +316,35 @@ static void test_btree_multi_insert() {
       std::remove(test_file.c_str());
   }
 
+static void test_btree_delete() {
+    const std::string f = "test_del.db";
+    std::remove(f.c_str());                                                                       
+    stratadb::DiskManager dm(f);
+    stratadb::BPlusTree tree(dm);                                                                 
+                  
+    tree.insert(10, 100);
+    tree.insert(20, 200);
+
+    int32_t val = -1;
+    check(tree.delete_key(10), "delete_key works");
+    check(!tree.search(10, val), "deleted key gone");
+
+    std::remove(f.c_str());
+}
+
+static void test_e2e_delete() {
+    const std::string f = "test_del2.db";
+    std::remove(f.c_str());
+    stratadb::DiskManager dm(f);
+    stratadb::Executor exec(dm);
+
+    run_sql(exec, "CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+    run_sql(exec, "INSERT INTO t VALUES (1, 100)");
+    check(run_sql(exec, "DELETE FROM t WHERE id = 1") == "Deleted row with id = 1.","DELETE via SQL works");
+
+    std::remove(f.c_str());
+}
+
 static void test_parser() {                                                                       
     std::cout << "\n Parser Tests\n";
                                                                                                     
@@ -412,6 +441,7 @@ std::cout << "\n[Persistence]\n";
 }
 
 
+
 int main() {
 
     test_disk_manager();
@@ -424,6 +454,8 @@ int main() {
     std::cout << "B+ Tree Tests";
       test_btree_empty();
       test_btree_first_insert();
+      test_btree_delete();
+      test_e2e_delete();
 
     std::cout <<"Parser Tests";
     test_parser();
