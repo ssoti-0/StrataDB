@@ -28,7 +28,14 @@ struct DeleteStmt {
     int32_t search_key;
 };
 
-using Statement = std::variant<CreateTableStmt, InsertStmt, SelectStmt, DeleteStmt>;
+struct JoinSelectStmt {
+    std::string left_table;
+    std::string right_table;
+    std::string left_column;   
+    std::string right_column;  
+};
+
+using Statement = std::variant<CreateTableStmt, InsertStmt, SelectStmt, DeleteStmt, JoinSelectStmt>;
 
 }
 

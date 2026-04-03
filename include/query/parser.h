@@ -21,6 +21,8 @@ enum class TokenType {
     INT,       
     PRIMARY,
     KEY,
+    JOIN,
+    ON,
 
      
     IDENTIFIER,  
@@ -31,7 +33,8 @@ enum class TokenType {
     RPAREN,     
     COMMA,       
     EQUALS,      
-    STAR,       
+    STAR, 
+    DOT,      
     SEMICOLON,   
 
     END_OF_INPUT
@@ -56,6 +59,7 @@ std::vector<Token> tokenize(const std::string& sql);
     InsertStmt parse_insert();
     SelectStmt parse_select();
     DeleteStmt parse_delete();
+    JoinSelectStmt parse_join_select();
 
     const Token& current() const;
     const Token& advance();

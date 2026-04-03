@@ -21,6 +21,8 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"INT",     TokenType::INT},
     {"PRIMARY", TokenType::PRIMARY},
     {"KEY",     TokenType::KEY},
+    {"JOIN",    TokenType::JOIN},
+    {"ON",      TokenType::ON},
 };
 
 static std::string token_type_name(TokenType type) {
@@ -37,6 +39,8 @@ static std::string token_type_name(TokenType type) {
         case TokenType::INT:          return "INT";
         case TokenType::PRIMARY:      return "PRIMARY";
         case TokenType::KEY:          return "KEY";
+        case TokenType::JOIN:         return "JOIN";
+        case TokenType::ON:           return "ON";
         case TokenType::IDENTIFIER:   return "identifier";
         case TokenType::INTEGER:      return "integer";
         case TokenType::LPAREN:       return "'('";
@@ -44,6 +48,7 @@ static std::string token_type_name(TokenType type) {
         case TokenType::COMMA:        return "','";
         case TokenType::EQUALS:       return "'='";
         case TokenType::STAR:         return "'*'";
+        case TokenType::DOT:          return "'.'";
         case TokenType::SEMICOLON:    return "';'";
         case TokenType::END_OF_INPUT: return "end of input";
     }
@@ -64,12 +69,13 @@ std::vector<Token> tokenize(const std::string& sql) {
     std::size_t start = i;
 
     switch (sql[i]) {
-        case '(': tokens.push_back({TokenType::LPAREN,    "(", start}); ++i; continue;
-        case ')': tokens.push_back({TokenType::RPAREN,    ")", start}); ++i; continue;
-        case ',': tokens.push_back({TokenType::COMMA,     ",", start}); ++i; continue;
-        case '=': tokens.push_back({TokenType::EQUALS,    "=", start}); ++i; continue;
-        case '*': tokens.push_back({TokenType::STAR,      "*", start}); ++i; continue;
-        case ';': tokens.push_back({TokenType::SEMICOLON, ";", start}); ++i; continue;
+        case '(': tokens.push_back({TokenType::LPAREN,    "(", start}); i++; continue;
+        case ')': tokens.push_back({TokenType::RPAREN,    ")", start}); i++; continue;
+        case ',': tokens.push_back({TokenType::COMMA,     ",", start}); i++; continue;
+        case '=': tokens.push_back({TokenType::EQUALS,    "=", start}); i++; continue;
+        case '*': tokens.push_back({TokenType::STAR,      "*", start}); i++; continue;
+        case '.': tokens.push_back({TokenType::DOT,       ".", start}); i++; continue;
+        case ';': tokens.push_back({TokenType::SEMICOLON, ";", start}); i++; continue;
         default: break;
     }
 
@@ -123,7 +129,13 @@ Statement Parser::parse(const std::string& sql) {
     } else if (parser.check(TokenType::INSERT)) {
         stmt = parser.parse_insert();
     } else if (parser.check(TokenType::SELECT)) {
-        stmt = parser.parse_select();
+        if (parser.tokens_.size() > 4 &&
+            parser.tokens_[parser.pos_ + 4].type == TokenType::JOIN) {
+            stmt = parser.parse_join_select();
+        } else {
+            stmt = parser.parse_select();
+        }
+
     } else if (parser.check(TokenType::DELETE)) {
         stmt = parser.parse_delete();
     } else {
