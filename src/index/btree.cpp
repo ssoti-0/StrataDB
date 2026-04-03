@@ -104,6 +104,7 @@ bool BPlusTree::delete_key(int32_t key) {
       }
 
       leaf->remove_at(idx);
+      write_node(current_page, *leaf);
       return true;
 }
 

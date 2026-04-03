@@ -67,9 +67,17 @@ std::string Executor::execute_select(const SelectStmt& stmt) {
 }
 
 std::string Executor::execute_delete(const DeleteStmt& stmt) {
-    require_table(stmt.table_name);
-    throw std::runtime_error("DELETE not implemented yet");
+      require_table(stmt.table_name);
+
+      if (tree_.delete_key(stmt.search_key)) {
+          return "Deleted row with " + schema_.key_column + " = " +
+                 std::to_string(stmt.search_key) + ".";
+      }
+
+      return "No row found with " + schema_.key_column + " = " +
+             std::to_string(stmt.search_key) + ".";
 }
+
 
 Schema Executor::read_schema() const {
     Schema schema;
