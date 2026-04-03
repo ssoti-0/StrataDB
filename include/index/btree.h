@@ -47,6 +47,8 @@ class BPlusTree {
     //Inserts a key-value pair and if it exists, it replaces the value 
     void insert(int32_t key, int32_t value);
 
+    bool delete_key(int32_t key);
+
     bool is_empty() const { return root_page_id_ == EMPTY_TREE_SENTINEL; }
     page_id_t root_page_id() const { return root_page_id_; }
 };

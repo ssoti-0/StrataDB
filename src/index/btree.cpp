@@ -82,6 +82,32 @@ bool BPlusTree::search(int32_t key, int32_t& value_out) const {
       return false;
   }
 
+bool BPlusTree::delete_key(int32_t key) {
+      if (is_empty()) {
+          return false;
+      }
+
+      page_id_t current_page = root_page_id_;
+      auto node = read_node(current_page);
+
+      while (!node->is_leaf()) {
+          auto* internal = static_cast<InternalNode*>(node.get());
+          int child_idx = internal->find_child_index(key);
+          current_page = internal->child_at(child_idx);
+          node = read_node(current_page);
+      }
+
+      auto* leaf = static_cast<LeafNode*>(node.get());
+      int idx = leaf->find_key(key);
+      if (idx < 0) {
+          return false;  
+      }
+
+      leaf->remove_at(idx);
+      return true;
+}
+
+
 
 // Insert O(log n)
 
