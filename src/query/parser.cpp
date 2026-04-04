@@ -236,6 +236,39 @@ DeleteStmt Parser::parse_delete() {
     return stmt;
 }
 
+JoinSelectStmt Parser::parse_join_select() {
+      expect(TokenType::SELECT, "statement start");
+      expect(TokenType::STAR, "SELECT *");
+      expect(TokenType::FROM, "SELECT * FROM");
+
+      const Token& left_table = expect(TokenType::IDENTIFIER,"left table name");
+      expect(TokenType::JOIN, "JOIN");
+      const Token& right_table = expect(TokenType::IDENTIFIER,"right table name");
+      expect(TokenType::ON, "ON");
+
+      const Token& on_left_table = expect(TokenType::IDENTIFIER,"left table in ON clause");
+      expect(TokenType::DOT, "dot in table.column");
+      const Token& on_left_col = expect(TokenType::IDENTIFIER,"left column in ON clause");
+
+      expect(TokenType::EQUALS, "= in ON clause");
+      const Token& on_right_table = expect(TokenType::IDENTIFIER,"right table in ON clause");
+      expect(TokenType::DOT, "dot in table.column");
+      const Token& on_right_col = expect(TokenType::IDENTIFIER,"right column in ON clause");
+
+      JoinSelectStmt stmt;
+      stmt.left_table = left_table.value;
+      stmt.right_table = right_table.value;
+      if (on_left_table.value == left_table.value) {
+        stmt.left_column = on_left_col.value;
+        stmt.right_column = on_right_col.value;
+    } else {
+        stmt.left_column = on_right_col.value;
+        stmt.right_column = on_left_col.value;
+    }
+    return stmt;
+}
+
+
 const Token& Parser::current() const {
       return tokens_[pos_];
 }
