@@ -6,6 +6,8 @@
 #include "storage/disk_manager.h"
 
 #include <string>
+#include <map>
+#include <memory>
 
 namespace stratadb {
 
@@ -18,23 +20,29 @@ struct Schema {
     std::string value_column;
 };
 
+struct TableHandle {
+      std::unique_ptr<DiskManager> disk_manager;
+      std::unique_ptr<BPlusTree> tree;
+      Schema schema;
+};
+
 class Executor {
 public:
-    explicit Executor(DiskManager& disk_manager);
+    explicit Executor(const std::string& base_dir);
     std::string execute(const Statement& stmt);
 
 private:
+
+    std::string base_dir_;
+    std::map<std::string, TableHandle> tables_;
+
     std::string execute_create(const CreateTableStmt& stmt);
     std::string execute_insert(const InsertStmt& stmt);
     std::string execute_select(const SelectStmt& stmt);
     std::string execute_delete(const DeleteStmt& stmt);
-    Schema read_schema() const;
-    void write_schema(const Schema& schema);
-    void require_table(const std::string& table_name) const;
-    
-    DiskManager& disk_manager_;
-    BPlusTree tree_;
-    Schema schema_;
+    std::string execute_join_select(const JoinSelectStmt& stmt);
+
+    TableHandle& get_table(const std::string& name);
   };
 
 } 
