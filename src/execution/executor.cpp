@@ -80,7 +80,7 @@ std::string Executor::execute_select(const SelectStmt& stmt) {
 
     int32_t value = 0;
     if (table.tree->search(stmt.search_key, value)) {
-        return stmt.table_name + " | " + table.schema.value_column + "\n" + std::to_string(stmt.search_key) + " | " +
+        return table.schema.key_column + " | " + table.schema.value_column + "\n" + std::to_string(stmt.search_key) + " | " +
             std::to_string(value);
     }
     return "No row found with " + table.schema.key_column + " = " + std::to_string(stmt.search_key) + ".";
@@ -93,9 +93,41 @@ if (table.tree->delete_key(stmt.search_key)) {
 
     return "No row found with " + table.schema.key_column + " = " + std::to_string(stmt.search_key) + ".";
 }
+
 std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {
-    return "JOIN not implemented yet.";
+      auto& left  = get_table(stmt.left_table);
+      auto& right = get_table(stmt.right_table);
+
+      auto resolve_column = [](const std::string& column, const Schema& schema,const std::string& table_name) -> bool {
+        if (column == schema.key_column) return true;   // use key
+        if (column == schema.value_column) return false; // use value
+        throw std::runtime_error("Column '" + column + "' does not exist in table '" + table_name + "'.");
+    };
+
+    bool left_uses_key  = resolve_column(stmt.left_column,  left.schema,  stmt.left_table);
+    bool right_uses_key = resolve_column(stmt.right_column, right.schema, stmt.right_table);
+    auto left_rows  = left.tree->scan_all();
+    auto right_rows = right.tree->scan_all();
+    std::string result = left.schema.key_column  + " | " + left.schema.value_column + " | " + right.schema.key_column + " | " + right.schema.value_column;
+    int match_count = 0;
+    for (const auto& [lk, lv] : left_rows) {
+        int32_t l_val = left_uses_key ? lk : lv;
+        for (const auto& [rk, rv] : right_rows) {
+            int32_t r_val = right_uses_key ? rk : rv;
+            if (l_val == r_val) {
+                result += "\n" + std::to_string(lk) + " | " + std::to_string(lv) + " | " + std::to_string(rk) + " | " + std::to_string(rv);
+                ++match_count;
+            }
+        }
+    }
+
+    if (match_count == 0) {
+        return "No matching rows found.";
+    }
+    return result;
 }
+
+
 TableHandle& Executor::get_table(const std::string& name) {
     auto it = tables_.find(name);
     if (it == tables_.end()) {
