@@ -43,6 +43,8 @@ private:
     std::string execute_join_select(const JoinSelectStmt& stmt);
 
     TableHandle& get_table(const std::string& name);
+    Schema read_schema(DiskManager& dm) const;
+    void write_schema(DiskManager& dm, const Schema& schema);
   };
 
 } 
