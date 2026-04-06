@@ -409,6 +409,27 @@ static void test_executor() {
     std::cout << "Executor tests passed.\n";
 }
 
+static void test_join_edges() {
+    std::cout << "JOIN Edge Cases";
+
+    std::remove("data/a.db");
+    std::remove("data/b.db");
+
+    stratadb::Executor exec("data");
+    exec.execute(stratadb::Parser::parse("CREATE TABLE a (id INT PRIMARY KEY, val INT)"));
+    exec.execute(stratadb::Parser::parse("CREATE TABLE b (id INT PRIMARY KEY, val INT)"));
+
+    exec.execute(stratadb::Parser::parse("INSERT INTO a VALUES (1, 10)"));
+    exec.execute(stratadb::Parser::parse("INSERT INTO b VALUES (2, 20)"));
+    std::cout << exec.execute(stratadb::Parser::parse("SELECT * FROM a JOIN b ON a.id = b.id")) << "\n";
+    try {
+        exec.execute(stratadb::Parser::parse("SELECT * FROM a JOIN b ON a.wrong = b.id"));
+    } catch (const std::exception& e) {
+        std::cout << "caught: " << e.what() << "\n";
+    }
+
+    std::cout << "JOIN edges passed.\n";
+}
 
 
 
@@ -430,6 +451,7 @@ int main() {
     std::cout <<"Parser Tests";
     test_parser();
     test_executor();
+    test_join_edges();
 
 
     std::cout << "\nResults: " << test_passed << " passed, " << test_failed << " failed\n";
