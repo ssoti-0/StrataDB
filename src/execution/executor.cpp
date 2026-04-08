@@ -1,54 +1,48 @@
 #include "execution/executor.h"
-
 #include <cstring>
 #include <filesystem>
 #include <stdexcept>
 #include <variant>
 
 namespace stratadb {
-static constexpr std::size_t SCHEMA_INIT_OFFSET  = 4;
-static constexpr std::size_t TABLE_NAME_OFFSET   = 8;
-static constexpr std::size_t KEY_COLUMN_OFFSET   = 72;
+// page 0 layout - bytes 0..3 belong to BPlusTree
+static constexpr std::size_t SCHEMA_INIT_OFFSET = 4;
+static constexpr std::size_t TABLE_NAME_OFFSET = 8;
+static constexpr std::size_t KEY_COLUMN_OFFSET = 72;
 static constexpr std::size_t VALUE_COLUMN_OFFSET = 136;
-static constexpr std::size_t IDENT_FIELD_SIZE    = 64;
+static constexpr std::size_t IDENT_FIELD_SIZE = 64;
 
 Executor::Executor(const std::string& base_dir) : base_dir_(base_dir) {
     namespace fs = std::filesystem;
     fs::create_directories(base_dir);
-
+    // load existing tables from the directory
     for (const auto& entry : fs::directory_iterator(base_dir)) {
         if (entry.path().extension() != ".db") continue;
-
         std::string table_name = entry.path().stem().string();
-        TableHandle handle;
+        TableInfo handle;
         handle.disk_manager = std::make_unique<DiskManager>(entry.path().string());
         handle.tree = std::make_unique<BPlusTree>(*handle.disk_manager);
         handle.schema = read_schema(*handle.disk_manager);
-
         if (handle.schema.initialized) {
             tables_[table_name] = std::move(handle);
         }
     }
 }
 
+ std::string Executor::execute(const Statement& stmt) {
+      if (auto* s = std::get_if<CreateTableStmt>(&stmt))
+          return execute_create(*s);
+      if (auto* s = std::get_if<InsertStmt>(&stmt))
+          return execute_insert(*s);
+      if (auto* s = std::get_if<SelectStmt>(&stmt))
+          return execute_select(*s);
+      if (auto* s = std::get_if<DeleteStmt>(&stmt))
+          return execute_delete(*s);
 
-std::string Executor::execute(const Statement& stmt) {
-    return std::visit([this](const auto& s) -> std::string {
-        using T = std::decay_t<decltype(s)>;
-        if constexpr (std::is_same_v<T, CreateTableStmt>) {
-            return execute_create(s);
-        } else if constexpr (std::is_same_v<T, InsertStmt>) {
-            return execute_insert(s);
-        } else if constexpr (std::is_same_v<T, SelectStmt>) {
-            return execute_select(s);
-        } else if constexpr (std::is_same_v<T, DeleteStmt>) {
-            return execute_delete(s);
-        } else if constexpr (std::is_same_v<T, JoinSelectStmt>) {
-            return execute_join_select(s);
-        }
-    }, stmt);
-}
-
+      if (auto* s = std::get_if<JoinSelectStmt>(&stmt))
+          return execute_join_select(*s);
+      throw std::runtime_error("unknown statement type");
+ }
 
 std::string Executor::execute_create(const CreateTableStmt& stmt) {
     if (tables_.count(stmt.table_name)) {
@@ -57,7 +51,7 @@ std::string Executor::execute_create(const CreateTableStmt& stmt) {
     }
     std::string path = base_dir_ + "/" + stmt.table_name + ".db";
 
-    TableHandle handle;
+    TableInfo handle;
     handle.disk_manager = std::make_unique<DiskManager>(path);
     handle.tree = std::make_unique<BPlusTree>(*handle.disk_manager);
     handle.schema.initialized = true;
@@ -68,19 +62,17 @@ std::string Executor::execute_create(const CreateTableStmt& stmt) {
     tables_[stmt.table_name] = std::move(handle);
     return "Table '" + stmt.table_name + "' created.";
 }
-
 std::string Executor::execute_insert(const InsertStmt& stmt) {
     auto& table = get_table(stmt.table_name);
     table.tree->insert(stmt.key, stmt.value);
     return "OK";
 }
-
 std::string Executor::execute_select(const SelectStmt& stmt) {
     auto& table = get_table(stmt.table_name);
 
     int32_t value = 0;
     if (table.tree->search(stmt.search_key, value)) {
-        return table.schema.key_column + " | " + table.schema.value_column + "\n" + std::to_string(stmt.search_key) + " | " +
+        return table.schema.key_column + "|" + table.schema.value_column + "\n" + std::to_string(stmt.search_key) + " | " +
             std::to_string(value);
     }
     return "No row found with " + table.schema.key_column + " = " + std::to_string(stmt.search_key) + ".";
@@ -88,27 +80,24 @@ std::string Executor::execute_select(const SelectStmt& stmt) {
 std::string Executor::execute_delete(const DeleteStmt& stmt) {
     auto& table = get_table(stmt.table_name);
 if (table.tree->delete_key(stmt.search_key)) {
-        return "Deleted row with " + table.schema.key_column + " = " + std::to_string(stmt.search_key) + ".";
+        return "Deleted " + table.schema.key_column + " =" + std::to_string(stmt.search_key) + ".";
     }
 
-    return "No row found with " + table.schema.key_column + " = " + std::to_string(stmt.search_key) + ".";
+    return "No row found with " + table.schema.key_column + "= " + std::to_string(stmt.search_key) + ".";
 }
-
 std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {
-      auto& left  = get_table(stmt.left_table);
+      auto& left = get_table(stmt.left_table);
       auto& right = get_table(stmt.right_table);
 
-      auto resolve_column = [](const std::string& column, const Schema& schema,const std::string& table_name) -> bool {
-        if (column == schema.key_column) return true;   // use key
-        if (column == schema.value_column) return false; // use value
-        throw std::runtime_error("Column '" + column + "' does not exist in table '" + table_name + "'.");
-    };
+    // figure out which field (key or value) each ON column refers to
+    bool left_uses_key = (stmt.left_column == left.schema.key_column);
+    bool right_uses_key = (stmt.right_column == right.schema.key_column);
 
-    bool left_uses_key  = resolve_column(stmt.left_column,  left.schema,  stmt.left_table);
-    bool right_uses_key = resolve_column(stmt.right_column, right.schema, stmt.right_table);
-    auto left_rows  = left.tree->scan_all();
+    // scan both tables and match rows
+    auto left_rows = left.tree->scan_all();
     auto right_rows = right.tree->scan_all();
     std::string result = left.schema.key_column  + " | " + left.schema.value_column + " | " + right.schema.key_column + " | " + right.schema.value_column;
+    // checking every pair
     int match_count = 0;
     for (const auto& [lk, lv] : left_rows) {
         int32_t l_val = left_uses_key ? lk : lv;
@@ -122,20 +111,19 @@ std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {
     }
 
     if (match_count == 0) {
-        return "No matching rows found.";
+        return "No matching rows.";
     }
     return result;
 }
 
 
-TableHandle& Executor::get_table(const std::string& name) {
+TableInfo& Executor::get_table(const std::string& name) {
     auto it = tables_.find(name);
     if (it == tables_.end()) {
-        throw std::runtime_error("Table '" + name + "' does not exist. Use CREATE TABLE first.");
+        throw std::runtime_error("no such table: " + name);
     }
     return it->second;
 }
-
 Schema Executor::read_schema(DiskManager& dm) const {
     Schema schema;
     if (dm.num_pages() == 0) {
@@ -151,16 +139,16 @@ Schema Executor::read_schema(DiskManager& dm) const {
         return schema;
     }
     schema.initialized = true;
-    schema.table_name   = std::string(page.data() + TABLE_NAME_OFFSET);
-    schema.key_column   = std::string(page.data() + KEY_COLUMN_OFFSET);
+    schema.table_name = std::string(page.data() + TABLE_NAME_OFFSET);
+    schema.key_column = std::string(page.data() + KEY_COLUMN_OFFSET);
     schema.value_column = std::string(page.data() + VALUE_COLUMN_OFFSET);
     return schema;
 }
-
+// write schema fields to page 0, careful not to overwrite btree's root pointer at bytes 0..3
   void Executor::write_schema(DiskManager& dm, const Schema& schema) {
     Page page{};
     dm.read_page(0, page);
-
+    // zero each field before writing to clear old data
     uint32_t init_flag = schema.initialized ? 1 : 0;
     std::memcpy(page.data() + SCHEMA_INIT_OFFSET, &init_flag, sizeof(uint32_t));
     std::memset(page.data() + TABLE_NAME_OFFSET, 0, IDENT_FIELD_SIZE);

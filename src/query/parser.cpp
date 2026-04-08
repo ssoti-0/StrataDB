@@ -9,53 +9,53 @@ namespace stratadb {
 
 
 static const std::unordered_map<std::string, TokenType> KEYWORDS = {
-    {"CREATE",  TokenType::CREATE},
-    {"TABLE",   TokenType::TABLE},
-    {"INSERT",  TokenType::INSERT},
-    {"INTO",    TokenType::INTO},
-    {"VALUES",  TokenType::VALUES},
-    {"SELECT",  TokenType::SELECT},
-    {"FROM",    TokenType::FROM},
-    {"WHERE",   TokenType::WHERE},
-    {"DELETE",  TokenType::DELETE},
-    {"INT",     TokenType::INT},
-    {"PRIMARY", TokenType::PRIMARY},
-    {"KEY",     TokenType::KEY},
-    {"JOIN",    TokenType::JOIN},
-    {"ON",      TokenType::ON},
+    {"CREATE",TokenType::CREATE},
+    {"TABLE",TokenType::TABLE},
+    {"INSERT",TokenType::INSERT},
+    {"INTO", TokenType::INTO},
+    {"VALUES",TokenType::VALUES},
+    {"SELECT",TokenType::SELECT},
+    {"FROM", TokenType::FROM},
+    {"WHERE",TokenType::WHERE},
+    {"DELETE",TokenType::DELETE},
+    {"INT",TokenType::INT},
+    {"PRIMARY",TokenType::PRIMARY},
+    {"KEY", TokenType::KEY},
+    {"JOIN",TokenType::JOIN},
+    {"ON", TokenType::ON},
 };
 
 static std::string token_type_name(TokenType type) {
     switch (type) {
-        case TokenType::CREATE:       return "CREATE";
-        case TokenType::TABLE:        return "TABLE";
-        case TokenType::INSERT:       return "INSERT";
-        case TokenType::INTO:         return "INTO";
-        case TokenType::VALUES:       return "VALUES";
-        case TokenType::SELECT:       return "SELECT";
-        case TokenType::FROM:         return "FROM";
-        case TokenType::WHERE:        return "WHERE";
-        case TokenType::DELETE:       return "DELETE";
-        case TokenType::INT:          return "INT";
-        case TokenType::PRIMARY:      return "PRIMARY";
-        case TokenType::KEY:          return "KEY";
-        case TokenType::JOIN:         return "JOIN";
-        case TokenType::ON:           return "ON";
-        case TokenType::IDENTIFIER:   return "identifier";
-        case TokenType::INTEGER:      return "integer";
-        case TokenType::LPAREN:       return "'('";
-        case TokenType::RPAREN:       return "')'";
-        case TokenType::COMMA:        return "','";
-        case TokenType::EQUALS:       return "'='";
-        case TokenType::STAR:         return "'*'";
-        case TokenType::DOT:          return "'.'";
-        case TokenType::SEMICOLON:    return "';'";
-        case TokenType::END_OF_INPUT: return "end of input";
+        case TokenType::CREATE:return "CREATE";
+        case TokenType::TABLE:return "TABLE";
+        case TokenType::INSERT:return "INSERT";
+        case TokenType::INTO:return "INTO";
+        case TokenType::VALUES:return "VALUES";
+        case TokenType::SELECT:return "SELECT";
+        case TokenType::FROM:return "FROM";
+        case TokenType::WHERE:return "WHERE";
+        case TokenType::DELETE:return "DELETE";
+        case TokenType::INT:return "INT";
+        case TokenType::PRIMARY:return "PRIMARY";
+        case TokenType::KEY:return "KEY";
+        case TokenType::JOIN:return "JOIN";
+        case TokenType::ON:return "ON";
+        case TokenType::IDENTIFIER:return "identifier";
+        case TokenType::INTEGER:return "integer";
+        case TokenType::LPAREN:return "'('";
+        case TokenType::RPAREN:return "')'";
+        case TokenType::COMMA:return "','";
+        case TokenType::EQUALS:return "'='";
+        case TokenType::STAR:return "'*'";
+        case TokenType::DOT:return "'.'";
+        case TokenType::SEMICOLON:return "';'";
+        case TokenType::END_OF_INPUT:return "end of input";
     }
     return "unknown";
 }
 
-
+// turn raw sql string into tokens 
 std::vector<Token> tokenize(const std::string& sql) {
     std::vector<Token> tokens;
     std::size_t i = 0;
@@ -69,13 +69,13 @@ std::vector<Token> tokenize(const std::string& sql) {
     std::size_t start = i;
 
     switch (sql[i]) {
-        case '(': tokens.push_back({TokenType::LPAREN,    "(", start}); i++; continue;
-        case ')': tokens.push_back({TokenType::RPAREN,    ")", start}); i++; continue;
-        case ',': tokens.push_back({TokenType::COMMA,     ",", start}); i++; continue;
-        case '=': tokens.push_back({TokenType::EQUALS,    "=", start}); i++; continue;
-        case '*': tokens.push_back({TokenType::STAR,      "*", start}); i++; continue;
-        case '.': tokens.push_back({TokenType::DOT,       ".", start}); i++; continue;
-        case ';': tokens.push_back({TokenType::SEMICOLON, ";", start}); i++; continue;
+        case '(': tokens.push_back({TokenType::LPAREN,"(", start}); i++; continue;
+        case ')': tokens.push_back({TokenType::RPAREN,")", start}); i++; continue;
+        case ',': tokens.push_back({TokenType::COMMA,",", start}); i++; continue;
+        case '=': tokens.push_back({TokenType::EQUALS,"=", start}); i++; continue;
+        case '*': tokens.push_back({TokenType::STAR,"*", start}); i++; continue;
+        case '.': tokens.push_back({TokenType::DOT,".", start}); i++; continue;
+        case ';': tokens.push_back({TokenType::SEMICOLON,";", start}); i++; continue;
         default: break;
     }
 
@@ -129,9 +129,9 @@ Statement Parser::parse(const std::string& sql) {
     } else if (parser.check(TokenType::INSERT)) {
         stmt = parser.parse_insert();
     } else if (parser.check(TokenType::SELECT)) {
-        if (parser.tokens_.size() > 4 &&
-            parser.tokens_[parser.pos_ + 4].type == TokenType::JOIN) {
-            stmt = parser.parse_join_select();
+        // check if this is a join query
+        if (parser.tokens_.size() > 4 && parser.tokens_[parser.pos_ + 4].type == TokenType::JOIN) {
+            stmt = parser.parse_join();
         } else {
             stmt = parser.parse_select();
         }
@@ -151,66 +151,59 @@ Statement Parser::parse(const std::string& sql) {
     return stmt;
 }
 CreateTableStmt Parser::parse_create_table() {
-    expect(TokenType::CREATE, "statement start");
+    expect(TokenType::CREATE, "CREATE");
     expect(TokenType::TABLE, "CREATE TABLE");
-
     const Token& name_tok = expect(TokenType::IDENTIFIER, "table name after CREATE TABLE");
     CreateTableStmt stmt;
     stmt.table_name = name_tok.value;
 
-    expect(TokenType::LPAREN, "column definitions");
+    expect(TokenType::LPAREN, "opening paren");
 
     const Token& key_col = expect(TokenType::IDENTIFIER,"primary key column name");
     stmt.key_column = key_col.value;
-    expect(TokenType::INT, "column type (must be INT)");
-    expect(TokenType::PRIMARY, "PRIMARY KEY constraint");
-    expect(TokenType::KEY, "PRIMARY KEY constraint");
-
-    expect(TokenType::COMMA, "between column definitions");
-
+    expect(TokenType::INT, "Int type");
+    expect(TokenType::PRIMARY, "PRIMARY KEY");
+    expect(TokenType::KEY, "KEY");
+    expect(TokenType::COMMA, "comma");
     const Token& val_col = expect(TokenType::IDENTIFIER, "value column name");
     stmt.value_column = val_col.value;
     expect(TokenType::INT, "column type (must be INT)");
 
-    expect(TokenType::RPAREN, "end of column definitions");
+    expect(TokenType::RPAREN, "closing paren");
 
     return stmt;
 }
 InsertStmt Parser::parse_insert() {
-    expect(TokenType::INSERT, "statement start");
+    expect(TokenType::INSERT, "INSERT");
     expect(TokenType::INTO, "INSERT INTO");
-
     const Token& name_tok = expect(TokenType::IDENTIFIER,"table name after INSERT INTO");
     InsertStmt stmt;
     stmt.table_name = name_tok.value;
-
-    expect(TokenType::VALUES, "VALUES clause");
-    expect(TokenType::LPAREN, "value list");
-
-    const Token& key_tok = expect(TokenType::INTEGER,"first value (key) in VALUES");
+    expect(TokenType::VALUES, "VALUES");
+    expect(TokenType::LPAREN, "opening paren");
+    const Token& key_tok = expect(TokenType::INTEGER,"key value");
     stmt.key = std::stoi(key_tok.value);
     expect(TokenType::COMMA, "between values");
 
-    const Token& val_tok = expect(TokenType::INTEGER,"second value (value) in VALUES");
+    const Token& val_tok = expect(TokenType::INTEGER,"value");
     stmt.value = std::stoi(val_tok.value);
 
-    expect(TokenType::RPAREN, "end of value list");
+    expect(TokenType::RPAREN, "closing paren");
 
     return stmt;
 }
 
 SelectStmt Parser::parse_select() { 
-    expect(TokenType::SELECT, "statement start");
+    expect(TokenType::SELECT, "SELECT");
     expect(TokenType::STAR, "SELECT *");
     expect(TokenType::FROM, "SELECT * FROM");
-
     const Token& name_tok = expect(TokenType::IDENTIFIER,"table name after FROM");
     SelectStmt stmt;
     stmt.table_name = name_tok.value;
 
     expect(TokenType::WHERE, "WHERE clause");
-    expect(TokenType::IDENTIFIER, "column name in WHERE clause");
-    expect(TokenType::EQUALS, "= in WHERE clause");
+    expect(TokenType::IDENTIFIER, "column name in WHERE");
+    expect(TokenType::EQUALS, "= in WHERE");
 
     const Token& val_tok = expect(TokenType::INTEGER,"value in WHERE clause");
     stmt.search_key = std::stoi(val_tok.value);
@@ -219,15 +212,14 @@ SelectStmt Parser::parse_select() {
 }
 
 DeleteStmt Parser::parse_delete() {
-    expect(TokenType::DELETE, "statement start");
+    expect(TokenType::DELETE, "DELETE");
     expect(TokenType::FROM, "DELETE FROM");
 
     const Token& name_tok = expect(TokenType::IDENTIFIER,"table name after DELETE FROM");
     DeleteStmt stmt;
     stmt.table_name = name_tok.value;
-
     expect(TokenType::WHERE, "WHERE clause");
-    expect(TokenType::IDENTIFIER, "column name in WHERE clause");
+    expect(TokenType::IDENTIFIER, "column name in WHERE");
     expect(TokenType::EQUALS, "= in WHERE clause");
 
     const Token& val_tok = expect(TokenType::INTEGER,"value in WHERE clause");
@@ -236,8 +228,8 @@ DeleteStmt Parser::parse_delete() {
     return stmt;
 }
 
-JoinSelectStmt Parser::parse_join_select() {
-      expect(TokenType::SELECT, "statement start");
+JoinSelectStmt Parser::parse_join() {
+      expect(TokenType::SELECT, "SELECT");
       expect(TokenType::STAR, "SELECT *");
       expect(TokenType::FROM, "SELECT * FROM");
 
@@ -245,15 +237,13 @@ JoinSelectStmt Parser::parse_join_select() {
       expect(TokenType::JOIN, "JOIN");
       const Token& right_table = expect(TokenType::IDENTIFIER,"right table name");
       expect(TokenType::ON, "ON");
-
-      const Token& on_left_table = expect(TokenType::IDENTIFIER,"left table in ON clause");
+      const Token& on_left_table = expect(TokenType::IDENTIFIER,"table in ON");
+      expect(TokenType::DOT, "dot");
+      const Token& on_left_col = expect(TokenType::IDENTIFIER,"column in ON");
+      expect(TokenType::EQUALS, "= in ON");
+      const Token& on_right_table = expect(TokenType::IDENTIFIER,"table in ON clause");
       expect(TokenType::DOT, "dot in table.column");
-      const Token& on_left_col = expect(TokenType::IDENTIFIER,"left column in ON clause");
-
-      expect(TokenType::EQUALS, "= in ON clause");
-      const Token& on_right_table = expect(TokenType::IDENTIFIER,"right table in ON clause");
-      expect(TokenType::DOT, "dot in table.column");
-      const Token& on_right_col = expect(TokenType::IDENTIFIER,"right column in ON clause");
+      const Token& on_right_col = expect(TokenType::IDENTIFIER,"column in ON");
 
       JoinSelectStmt stmt;
       stmt.left_table = left_table.value;
@@ -284,11 +274,7 @@ const Token& Parser::advance() {
 const Token& Parser::expect(TokenType expected, const std::string& context) {
     if (current().type != expected) {
         throw std::runtime_error(
-            "Parser error at position " +
-            std::to_string(current().position) + ": expected " +
-            token_type_name(expected) + " (" + context + "), got " +
-            token_type_name(current().type) +
-            (current().value.empty() ? "" : " '" + current().value + "'"));
+           "parse error at " + std::to_string(current().position) + ": expected " + token_type_name(expected) + " (" + context + ")");
     }
     return advance();
 }

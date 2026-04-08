@@ -59,7 +59,7 @@ std::vector<Token> tokenize(const std::string& sql);
     InsertStmt parse_insert();
     SelectStmt parse_select();
     DeleteStmt parse_delete();
-    JoinSelectStmt parse_join_select();
+    JoinSelectStmt parse_join();
 
     const Token& current() const;
     const Token& advance();
