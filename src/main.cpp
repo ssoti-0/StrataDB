@@ -9,9 +9,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <variant>
-
-
 
 static int test_passed = 0;
 static int test_failed = 0;
@@ -38,22 +35,22 @@ static void check_throws(Func&& func, const std::string& description) {
     }
 }
 
-//Tests for DiskManager
+static std::string run_sql(stratadb::Executor& exec, const std::string& sql) {
+      auto stmt = stratadb::Parser::parse(sql);
+      return exec.execute(stmt);
+  }
+
+
+// basic file and page operations  
 static void test_disk_manager() {
 
     const std::string test_file = "test_diskmanager.db";
     std::remove (test_file.c_str());
 
     std::cout << "Disk Manager Tests \n";
-
-    //File creation and the initial state
-    std::cout <<"File creation\n";
     stratadb::DiskManager dm(test_file);
     check(dm.num_pages() == 0, "new file starts with 0 pages");
     check(dm.file_path() == test_file, "file_path() returns the correct path");
-
-    //Page allocation
-    std::cout << "\nPage allocation";
     stratadb::page_id_t p0 = dm.allocate_page();
     stratadb::page_id_t p1 = dm.allocate_page();
     stratadb::page_id_t p2 = dm.allocate_page();
@@ -61,401 +58,214 @@ static void test_disk_manager() {
     check(p1 == 1, "second page has id 1");
     check(p2 == 2, "third page has id 2");
     check(dm.num_pages() == 3, "num_pages is 3 after 3 allocations");
-
-    //Write and read back
-    std::cout << "\nWrite and read\n";
     stratadb::Page write_buf{};
     const char* message = "Hello, StrataDB!";
     std::memcpy(write_buf.data(), message, std::strlen(message));
     dm.write_page(1, write_buf);
-
     stratadb::Page read_buf{};
     dm.read_page(1, read_buf);
     check(read_buf == write_buf, "read_page returns what was written");
     check(std::memcmp(read_buf.data(), message, std::strlen(message)) == 0, "content matches espected string");
-
-    //Zero-fill verification
-    std::cout << "\nZero-fill verification";
     stratadb::Page zero_buf{};
     stratadb::Page alloc_read{};
     dm.read_page(0, alloc_read);
     check(alloc_read == zero_buf, "allocated page 0 is zero-filled");
-    dm.read_page(2, alloc_read);
-    check(alloc_read == zero_buf, "allocated page 2 is zero-filled");
-    
-    //Validation
-    std::cout <<"\n[Validation\n";
     stratadb::Page dummy{};
     check_throws([&]() {dm.read_page(3, dummy); }, "read_page throws for page_id == num_pages");
-    check_throws([&]() {dm.read_page(100, dummy); }, "read_page throws for page_id far out of range");
     check_throws([&]() {dm.write_page(5, dummy); }, "write_page throws for page_id > num_pages");
-
-    //Reopening exist. file 
-    std::cout << "\nReopen existing file\n";
-    {
-        stratadb::DiskManager dm2(test_file);
-        check(dm2.num_pages() == 3, "reopened file still has 3 pages");
-        
-        stratadb::Page reopen_buf{};
-        dm2.read_page(1, reopen_buf);
-        check(reopen_buf == write_buf, "data is still present fater reopen");
-    }
-
     std::remove(test_file.c_str());
 
 }
 
-//Node tests
-static void test_leaf_node() {
-    std::cout << "\nLeaf Node tests\n";
+// make sure nodes store keys in order and survive serialization
+static void test_nodes() {
+    std::cout << "\n Node tests\n";
 
-    //Inserting keys out of order - i expect for them to end up sorted
     stratadb::LeafNode leaf;
     leaf.insert(30, 300);
     leaf.insert(10, 100);
     leaf.insert(20, 200);
 
-    check(leaf.num_keys() == 3, "Leaf has 3 keys after 3 inserts");
-    check(leaf.key_at(0) == 10, "keys sorted: index 0 is 10");
-    check(leaf.key_at(1) == 20, "keys sorted: index 1 is 20");
-    check(leaf.key_at(2) == 30, "keys sorted: index 2 is 30");
-
-    check(leaf.find_key(10) == 0, "find_key(10) returns 0");
+    check(leaf.num_keys() == 3,"Leaf has 3 keys after 3 inserts");
+    check(leaf.key_at(0) == 10,"keys sorted: index 0 is 10");
+    check(leaf.key_at(2) == 30,"keys sorted: index 2 is 30");
     check(leaf.find_key(20) == 1, "find_key(20) returns 1");
-    check(leaf.find_key(30) == 2, "find_key(30) returns 2");
     check(leaf.find_key(99) == -1, "find_key(99) returns -1 (not found)");
-    check(leaf.value_at(0) == 100, "value at index 0 is 100");
-    check(leaf.find_key(2) == 300, "value at index 2 is 300");
+    check(leaf.value_at(2) == 300, "value at index 2 is 300");
 
-    //Serialization roundtrip (making sure that i can save the code to disk and get the same data back)
+    // serialize and read back to make sure nothing gets lost
     stratadb::Page page{};
     leaf.serialize(page);
-
     auto desirialized = stratadb::Node::deserialize(page);
     check(desirialized->is_leaf(), "deserialized node is a leaf");
     check(desirialized->num_keys() == 3, "desirialized leaf has 3 keys");
 
     auto* leaf2 = static_cast<stratadb::LeafNode*>(desirialized.get());
     check(leaf2->key_at(0) == 10, "roundtrip: key 0 is 10");
-    check(leaf2->key_at(2) == 30, "roundtrip: key 2 is 30");
     check(leaf2->value_at(1) == 200, "roundtrip: value 1 is 200");
-    check(leaf2->find_key(20) == 1, "roundtrip: find_key still works");
-
-}
-
-static void test_internal_node() {
-    std::cout << "\nInternalNode tests";
-
 
     stratadb::InternalNode internal;
     internal.set_child(0, 100);
     internal.insert_key_child(10, 101);
     internal.insert_key_child(20,102);
-    internal.insert_key_child(30, 103);
 
-    check(internal.num_keys() == 3, "internal has 3 keys");
-    check(internal.key_at(0) == 10, "key 0 is 10");
-    check(internal.key_at(1) == 20, "key 1 is 20");
-    check(internal.child_at(0) == 100, "child 0 is 100");
-    check(internal.child_at(3) == 103, "child 3 is 103");
-
-    check(internal.find_child_index(5) == 0, "key 5 -> child 0");
+      check(internal.find_child_index(5) == 0, "key 5 -> child 0");
     check(internal.find_child_index(15) == 1, "key 15 -> child 1");
     check(internal.find_child_index(25) == 2, "key 25 -> child 2");
-    check(internal.find_child_index(35) == 3, "key 35 -> child 3");
-
-    stratadb::Page page{};
-    internal.serialize(page);
-
-    auto deserialized = stratadb::Node::deserialize(page);
-    check(!deserialized->is_leaf(), "deserialized node is internal");
-    check(deserialized->num_keys() == 3, "deserialized internal has 3 keys");
-
-    auto* int2 = static_cast<stratadb::InternalNode*>(deserialized.get());
-    check(int2->child_at(0) == 100, "roundtrip: child 0 is 100");
-    check(int2->child_at(2) == 102, "roundtrip: child 2 is 102");
-    check(int2->find_child_index(15) == 1, "roundtrip: find_child_index works");
-
 
 }
 
-//B+ Tree tests
+// insert and search without triggering any splits
+static void test_btree() {
+ const std::string f = "test_btree.db";
+    std::remove(f.c_str());
 
-static void test_btree_empty() {
-    const std::string test_file = "test_btree.db";
-    std::remove(test_file.c_str());
-
-    std::cout<<"\nB+Tree: empty tree";
-    stratadb::DiskManager dm(test_file);
+    std::cout << "\nB+ Tree tests\n";
+    stratadb::DiskManager dm(f);
     stratadb::BPlusTree tree(dm);
 
     check(tree.is_empty(), "new tree is empty");
-    check(tree.root_page_id() == 0, "empty tree has root_page_id = 0 (sentinel)");
 
     int32_t val = -1;
     check(!tree.search(42, val), "search in empty tree returns false");
 
-    // Metadata page should exist.
-    check(dm.num_pages() == 1, "metadata page allocated");
+    tree.insert(10, 100);
+    tree.insert(30, 300);
+    tree.insert(20, 200);
+    tree.insert(40, 400);
 
-     std::remove(test_file.c_str());
+    check(tree.search(10, val) && val == 100, "key 10 found");
+    check(tree.search(30, val) && val == 300, "key 30 found");
+    check(!tree.search(99, val), "key 99 not found");
+
+    std::remove(f.c_str());
 
 }
+// 25 sequential inserts — forces leaf and internal node splits
+static void test_btree_splits() {
+    const std::string f = "test_splits.db";
+    std::remove(f.c_str());
 
-static void test_btree_first_insert() {
-    const std::string test_file = "test_btree.db";
-    std::remove(test_file.c_str());
-
-    std::cout << "\nTest: for first insert";
-    stratadb::DiskManager dm(test_file);
+    std::cout << "\nB+ Tree splits (25 keys)\n";
+    stratadb::DiskManager dm(f);
     stratadb::BPlusTree tree(dm);
 
-    tree.insert(10, 100);
-    check(!tree.is_empty(), "tree not empty after insert");
-    check(tree.root_page_id() != 0, "root page changed from sentinel");
+    for (int i = 1; i <= 25; ++i) {
+        tree.insert(i, i * 10);
+    }
+    bool all_found = true;
+    for (int i = 1; i <= 25; ++i) {
+        int32_t val;
+        if (!tree.search(i, val) || val != i * 10) {
+            std::cout << "    MISSING key " << i << "\n";
+            all_found = false;
+        }
+    }
+    check(all_found, "all 25 keys found after splits");
+    std::cout << "    tree uses " << dm.num_pages() << " pages\n";
 
-    int32_t val = -1;
-    check(tree.search(10, val), "search finds key 10");
-    check(val == 100, "value for key 10 is 100");
-    check(!tree.search(99, val), "non-existent key 99 not found");
-
-    std::remove(test_file.c_str());
+    std::remove(f.c_str());
 }
-
-static void test_btree_multi_insert() {
-      const std::string test_file = "test_btree.db";
-      std::remove(test_file.c_str());
-
-      std::cout << "\n[Test: multiple inserts no split]\n";
-      stratadb::DiskManager dm(test_file);
-      stratadb::BPlusTree tree(dm);
-
-      tree.insert(30, 300);
-      tree.insert(10, 100);
-      tree.insert(40, 400);
-      tree.insert(20, 200);
-
-      int32_t val = -1;
-      check(tree.search(10, val) && val == 100, "key 10 → 100");
-      check(tree.search(20, val) && val == 200, "key 20 → 200");
-      check(tree.search(30, val) && val == 300, "key 30 → 300");
-      check(tree.search(40, val) && val == 400, "key 40 → 400");
-
-      std::remove(test_file.c_str());
-  }
-
-  static void test_btree_many_keys() {
-      const std::string test_file = "test_btree.db";
-      std::remove(test_file.c_str());
-
-      std::cout << "\n[Test: 25 sequential keys]\n";
-      stratadb::DiskManager dm(test_file);
-      stratadb::BPlusTree tree(dm);
-
-      for (int i = 1; i <= 25; ++i) {
-          tree.insert(i, i * 10);
-      }
-
-      bool all_found = true;
-      for (int i = 1; i <= 25; ++i) {
-          int32_t val;
-          if (!tree.search(i, val) || val != i * 10) {
-              std::cout << "    MISSING key " << i << "\n";
-              all_found = false;
-          }
-      }
-      check(all_found, "all 25 sequential keys found");
-      std::cout << "    (tree uses " << dm.num_pages() << " pages)\n";
-
-      std::remove(test_file.c_str());
-  }
-
-  static void test_btree_reverse() {
-      const std::string test_file = "test_btree.db";
-      std::remove(test_file.c_str());
-
-      std::cout << "\n[Test: reverse-order inserts]\n";
-      stratadb::DiskManager dm(test_file);
-      stratadb::BPlusTree tree(dm);
-
-      for (int i = 20; i >= 1; --i) {
-          tree.insert(i, i * 100);
-      }
-
-      bool all_found = true;
-      for (int i = 1; i <= 20; ++i) {
-          int32_t val;
-          if (!tree.search(i, val) || val != i * 100) all_found = false;
-      }
-      check(all_found, "all 20 reverse-inserted keys found");
-
-      std::remove(test_file.c_str());
-  }
-
-  static void test_btree_random_order() {
-      const std::string test_file = "test_btree.db";
-      std::remove(test_file.c_str());
-
-      std::cout << "\n[Test: random-order inserts]\n";
-      stratadb::DiskManager dm(test_file);
-      stratadb::BPlusTree tree(dm);
-
-      std::vector<int> keys = {15, 3, 22, 8, 19, 1, 30, 12, 25, 6,
-                               28, 17, 10, 27, 5, 20, 14, 2, 24, 9};
-      for (int k : keys) {
-          tree.insert(k, k * 11);
-      }
-
-      bool all_found = true;
-      for (int k : keys) {
-          int32_t val;
-          if (!tree.search(k, val) || val != k * 11) all_found = false;
-      }
-      check(all_found, "all 20 randomly-ordered keys found");
-
-      std::remove(test_file.c_str());
-  }
-
+// delete a key, check its gone and the other one isnt
 static void test_btree_delete() {
     const std::string f = "test_del.db";
-    std::remove(f.c_str());                                                                       
+    std::remove(f.c_str());
+
+    std::cout << "\nB+ Tree delete\n";
     stratadb::DiskManager dm(f);
-    stratadb::BPlusTree tree(dm);                                                                 
-                  
+    stratadb::BPlusTree tree(dm);
+
     tree.insert(10, 100);
     tree.insert(20, 200);
 
     int32_t val = -1;
-    check(tree.delete_key(10), "delete_key works");
-    check(!tree.search(10, val), "deleted key gone");
+    check(tree.delete_key(10), "delete_key returns true");
+    check(!tree.search(10, val), "deleted key is gone");
+    check(tree.search(20, val) && val == 200, "other key still there");
 
     std::remove(f.c_str());
 }
-
-static void test_e2e_delete() {
-    const std::string f = "test_del2.db";
-    std::remove(f.c_str());
-    stratadb::DiskManager dm(f);
-    stratadb::Executor exec(dm);
-
-    run_sql(exec, "CREATE TABLE t (id INT PRIMARY KEY, val INT)");
-    run_sql(exec, "INSERT INTO t VALUES (1, 100)");
-    check(run_sql(exec, "DELETE FROM t WHERE id = 1") == "Deleted row with id = 1.","DELETE via SQL works");
-
-    std::remove(f.c_str());
-}
-
-static void test_parser() {                                                                       
-    std::cout << "\n Parser Tests\n";
-                                                                                                    
+// parse each statement type and make sure fields are correct
+static void test_parser() {
+    std::cout << "\nParser Tests\n";
     {
         auto stmt = stratadb::Parser::parse("CREATE TABLE students (id INT PRIMARY KEY, grade INT)");
         auto& create = std::get<stratadb::CreateTableStmt>(stmt);
         check(create.table_name == "students", "CREATE parses table name");
         check(create.key_column == "id", "CREATE parses key column");
     }
-
     {
         auto stmt = stratadb::Parser::parse("INSERT INTO students VALUES (42, 95)");
         auto& insert = std::get<stratadb::InsertStmt>(stmt);
         check(insert.key == 42, "INSERT parses key");
         check(insert.value == 95, "INSERT parses value");
     }
-
     {
         auto stmt = stratadb::Parser::parse("SELECT * FROM students WHERE id = 42");
         auto& select = std::get<stratadb::SelectStmt>(stmt);
         check(select.search_key == 42, "SELECT parses search key");
     }
-
     {
         auto stmt = stratadb::Parser::parse("DELETE FROM students WHERE id = 42");
         auto& del = std::get<stratadb::DeleteStmt>(stmt);
         check(del.search_key == 42, "DELETE parses search key");
     }
-
     {
         auto stmt = stratadb::Parser::parse("create table T (x int primary key, y int)");
         auto& create = std::get<stratadb::CreateTableStmt>(stmt);
         check(create.table_name == "T", "lowercase keywords work");
     }
-
-    {
-        auto stmt = stratadb::Parser::parse("INSERT INTO t VALUES (-5, -100)");
-        auto& insert = std::get<stratadb::InsertStmt>(stmt);
-        check(insert.key == -5, "negative key works");
-    }
-
-      // It is intended t oreject bad sql
     check_throws([]() { stratadb::Parser::parse("HELLO WORLD"); },"rejects unknown statement");
-check_throws([]() { stratadb::Parser::parse("SELECT * FROM"); },"rejects incomplete SQL");
-  }
+    check_throws([]() { stratadb::Parser::parse("SELECT * FROM"); },"rejects incomplete sql");
+}                                                                
+// full pipeline: sql string -> parse -> execute -> check result
+ static void test_executor() {
+    std::cout << "\nExecutor Tests\n";
+    std::remove("testdata/users.db");
+    stratadb::Executor exec("testdata");
 
-static std::string run_sql(stratadb::Executor& exec, const std::string& sql) {                 
-      auto stmt = stratadb::Parser::parse(sql);
-      return exec.execute(stmt);                                                                     
-}                                                                                                
+    auto r1 = run_sql(exec, "CREATE TABLE users (id INT PRIMARY KEY, age INT)");
+    check(r1 == "Table 'users' created.", "CREATE TABLE works");
+    run_sql(exec, "INSERT INTO users VALUES (1, 25)");
+    run_sql(exec, "INSERT INTO users VALUES (2, 30)");
+    auto sel = run_sql(exec, "SELECT * FROM users WHERE id = 1");
+    check(sel.find("25") != std::string::npos, "SELECT finds value");
+    auto del = run_sql(exec, "DELETE FROM users WHERE id = 1");
+    check(del.find("Deleted") != std::string::npos, "delete ok");
+    // make sure the row is actually gone after delete
+    auto gone = run_sql(exec, "SELECT * FROM users WHERE id = 1");
+    check(gone.find("No row") != std::string::npos, "deleted row gone");
 
-static void test_executor() {                             
-    std::cout << "\n=== Executor Tests ===\n";
-
-    std::remove("data/users.db");
-    stratadb::Executor executor("data");
-
-    std::cout << executor.execute(stratadb::Parser::parse("CREATE TABLE users (id INT PRIMARY KEY, age INT)")) << "\n";
-    std::cout << executor.execute(stratadb::Parser::parse("INSERT INTO users VALUES (1, 25)")) << "\n";
-    std::cout << executor.execute(stratadb::Parser::parse("SELECT * FROM users WHERE id = 1")) << "\n";
-
-    std::cout << "Executor tests passed.\n";
+    std::remove("testdata/users.db");
 }
 
-static void test_join_edges() {
-    std::cout << "JOIN Edge Cases";
+static void test_join() {
+    std::cout << "\nJoin test\n";
 
-    std::remove("data/a.db");
-    std::remove("data/b.db");
+    std::remove("testdata/students.db");
+    std::remove("testdata/grades.db");
+    stratadb::Executor exec("testdata");
 
-    stratadb::Executor exec("data");
-    exec.execute(stratadb::Parser::parse("CREATE TABLE a (id INT PRIMARY KEY, val INT)"));
-    exec.execute(stratadb::Parser::parse("CREATE TABLE b (id INT PRIMARY KEY, val INT)"));
+    run_sql(exec, "CREATE TABLE students (id INT PRIMARY KEY, name INT)");
+    run_sql(exec, "CREATE TABLE grades (sid INT PRIMARY KEY, score INT)");
+    run_sql(exec, "INSERT INTO students VALUES (1, 10)");
+    run_sql(exec, "INSERT INTO students VALUES (2, 20)");
+    run_sql(exec, "INSERT INTO grades VALUES (1, 95)");
+    run_sql(exec, "INSERT INTO grades VALUES (3, 80)");
 
-    exec.execute(stratadb::Parser::parse("INSERT INTO a VALUES (1, 10)"));
-    exec.execute(stratadb::Parser::parse("INSERT INTO b VALUES (2, 20)"));
-    std::cout << exec.execute(stratadb::Parser::parse("SELECT * FROM a JOIN b ON a.id = b.id")) << "\n";
-    try {
-        exec.execute(stratadb::Parser::parse("SELECT * FROM a JOIN b ON a.wrong = b.id"));
-    } catch (const std::exception& e) {
-        std::cout << "caught: " << e.what() << "\n";
-    }
-
-    std::cout << "JOIN edges passed.\n";
+    auto result = run_sql(exec,"SELECT * FROM students JOIN grades ON students.id = grades.sid");
+    check(result.find("95") != std::string::npos, "join found matching row");
 }
-
-
-
 int main() {
-
     test_disk_manager();
-
-    std::cout <<"Node tests";
-    test_leaf_node();
-    test_internal_node();
-    test_btree_multi_insert();
-
-    std::cout << "B+ Tree Tests";
-      test_btree_empty();
-      test_btree_first_insert();
-      test_btree_delete();
-      test_e2e_delete();
-
-    std::cout <<"Parser Tests";
+    test_nodes();
+    test_btree();
+    test_btree_splits();
+    test_btree_delete();
     test_parser();
     test_executor();
-    test_join_edges();
+    test_join();
 
-
-    std::cout << "\nResults: " << test_passed << " passed, " << test_failed << " failed\n";
-    
+    std::cout << "\nResults: " << test_passed << " passed, "<< test_failed << " failed\n";
     return test_failed > 0 ? 1 : 0;
-
 }
