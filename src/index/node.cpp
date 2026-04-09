@@ -7,18 +7,17 @@
 
 
 namespace stratadb {
-
+    // check the flag to figure out what kind of node this is  
     std::unique_ptr<Node> Node::deserialize(const Page& page) {
         uint32_t is_leaf_raw = 0;
         std::memcpy(&is_leaf_raw, page.data(), sizeof(uint32_t));
-
         if (is_leaf_raw == 1) {
             return LeafNode::deserialize_leaf(page);
         } else {
             return InternalNode::deserialize_internal(page);
         }
     }
-
+    // pack leaf data into a page  
     void LeafNode::serialize(Page& page) const {
         page.fill(0);
 
@@ -26,10 +25,8 @@ namespace stratadb {
         uint32_t is_leaf_raw = 1;
         std::memcpy(page.data() + offset, &is_leaf_raw, sizeof(uint32_t));
         offset += sizeof(uint32_t);
-
         std::memcpy(page.data() + offset, &num_keys_, sizeof(uint32_t));
         offset += sizeof(uint32_t);
-
         std::memcpy(page.data() + offset, keys_.data(), ORDER * sizeof(int32_t));
         offset += ORDER * sizeof(int32_t);
 
@@ -38,32 +35,27 @@ namespace stratadb {
 
         std::memcpy(page.data() + offset, &next_leaf_, sizeof(uint32_t));
     }
-
     std::unique_ptr<LeafNode> LeafNode::deserialize_leaf(const Page& page) {
        auto node = std::make_unique<LeafNode>();
        std::size_t offset = 0;
-
        offset += sizeof(uint32_t);
 
        std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
        offset += sizeof(uint32_t);
-
         if (node->num_keys_ > ORDER) {
             throw std::runtime_error("LeafNode::deserialize: num_keys " + std::to_string(node->num_keys_) + " esceeds ORDER" + std::to_string(ORDER));
         }
     
        std::memcpy(node->keys_.data(), page.data() + offset, ORDER * sizeof(int32_t));
- 
+       offset += ORDER * sizeof(int32_t);
        std::memcpy(node->values_.data(), page.data() + offset, ORDER * sizeof(int32_t));
        offset += ORDER * sizeof(int32_t);
-
        std::memcpy(&node->next_leaf_, page.data() + offset, sizeof(uint32_t));
-
        return node;
     }
 
     int LeafNode::find_key(int32_t key) const {
-        for (uint32_t i = 0; i <= num_keys_; ++i) {
+        for (uint32_t i = 0; i < num_keys_; ++i) {
             if (keys_[i] == key) {
                 return static_cast<int>(i);
             }
@@ -75,101 +67,86 @@ namespace stratadb {
         int pos = 0;
         while (pos < static_cast<int>(num_keys_) && keys_[pos] < key) {
             ++pos;
-        }
-
-        for (int i = static_cast<int>(num_keys_); i > pos; --i) {
-            keys_[i] = keys_[i-1];
-            values_[i] = values_[i-1];
-        }
-
-        keys_[pos] = key;
-        values_[pos] = value;
-        ++num_keys_;
+    }
+    // shift everything right to make room
+    for (int i = static_cast<int>(num_keys_); i > pos; --i) {
+        keys_[i] = keys_[i-1];
+        values_[i] = values_[i-1];
     }
 
-    bool LeafNode::remove_at(int index) {
-        if (index < 0 || index >= static_cast<int>(num_keys_)) {
-          return false;
-        }
-
-        for (int i = index; i < static_cast<int>(num_keys_) - 1; ++i) {
-          keys_[i] = keys_[i + 1];
-          values_[i] = values_[i + 1];
-        }
-
-        keys_[num_keys_ - 1] = 0;
-        values_[num_keys_ - 1] = 0;
-        --num_keys_;
-        return true;
+    keys_[pos] = key;
+    values_[pos] = value;
+    ++num_keys_;
+}
+bool LeafNode::remove_at(int index) {
+    if (index < 0 || index >= static_cast<int>(num_keys_)) {
+        return false;
     }
+    for (int i = index; i < static_cast<int>(num_keys_) - 1; ++i) {
+        keys_[i] = keys_[i + 1];
+        values_[i] = values_[i + 1];
+    }
+    keys_[num_keys_ - 1] = 0;
+    values_[num_keys_ - 1] = 0;
+    --num_keys_;
+    return true;
+}
+// write internal node to page  
+void InternalNode::serialize(Page& page) const {
+     page.fill(0);
 
-
-    void InternalNode::serialize(Page& page) const {
-        page.fill(0);
-
-        std::size_t offset = 0;
-
-        uint32_t is_leaf_raw = 0;
-        std::memcpy(page.data() + offset, &is_leaf_raw, sizeof(uint32_t));
-        offset += sizeof(uint32_t);
-
-        std::memcpy(page.data() + offset, &num_keys_, sizeof(uint32_t));
-        offset += sizeof(uint32_t);
-
-        std::memcpy(page.data() + offset, keys_.data(), ORDER * sizeof(int32_t));
-        offset += ORDER * sizeof(int32_t);
-
-        std::memcpy(page.data() + offset, children_.data(), (ORDER + 1) * sizeof(uint32_t));
+    std::size_t offset = 0;
+    uint32_t is_leaf_raw = 0;
+    std::memcpy(page.data() + offset, &is_leaf_raw, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+    std::memcpy(page.data() + offset, &num_keys_, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+    std::memcpy(page.data() + offset, keys_.data(), ORDER * sizeof(int32_t));
+    offset += ORDER * sizeof(int32_t);
+    std::memcpy(page.data() + offset, children_.data(), (ORDER + 1) * sizeof(uint32_t));
         
+}
+
+std::unique_ptr<InternalNode> InternalNode::deserialize_internal(const Page& page) {
+    auto node = std::make_unique<InternalNode>();
+    std::size_t offset = 0;
+
+    offset += sizeof(uint32_t);
+    std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
+    offset += sizeof (uint32_t);
+
+    if (node->num_keys_ > ORDER) {
+        throw std::runtime_error ("Internal Node:: desserialize: num_keys " + std::to_string(node->num_keys_) + " exceeds ORDER " + std::to_string(ORDER));
     }
+    std::memcpy(node->keys_.data(), page.data() + offset, ORDER * sizeof(int32_t));
+    offset += ORDER * sizeof(int32_t);
+    std::memcpy(node->children_.data(), page.data() + offset, (ORDER + 1) * sizeof(uint32_t));
+    return node;
+}
 
-    std::unique_ptr<InternalNode> InternalNode::deserialize_internal(const Page& page) {
-        auto node = std::make_unique<InternalNode>();
-        std::size_t offset = 0;
-
-        offset += sizeof(uint32_t);
-
-        std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
-        offset += sizeof (uint32_t);
-
-        if (node->num_keys_ > ORDER) {
-            throw std::runtime_error ("Internal Node:: desserialize: num_keys " + std::to_string(node->num_keys_) + " exceeds ORDER " + std::to_string(ORDER));
+int InternalNode::find_child_index(int32_t key) const {
+    for (uint32_t i = 0; i < num_keys_; ++i) {
+        if (key < keys_[i]) {
+            return static_cast<int>(i);
         }
-
-        std::memcpy(node->keys_.data(), page.data() + offset, ORDER * sizeof(int32_t));
-        offset += ORDER * sizeof(int32_t);
-        std::memcpy(node->children_.data(), page.data() + offset, (ORDER + 1) * sizeof(uint32_t));
-
-        return node;
     }
+    return static_cast<int>(num_keys_);
+}
 
-    int InternalNode::find_child_index(int32_t key) const {
-      for (uint32_t i = 0; i < num_keys_; ++i) {
-          if (key < keys_[i]) {
-              return static_cast<int>(i);
-          }
-      }
-      return static_cast<int>(num_keys_);
-  }
-
-
+    // shift keys and children to make space
     void InternalNode::insert_key_child(int32_t key, page_id_t right_child) {
         int pos = 0;
         while (pos < static_cast<int>(num_keys_) && keys_[pos] < key) {
             ++pos;
         }
-
         for (int i = static_cast<int>(num_keys_); i > pos; --i) {
             keys_[i] = keys_[i-1];
         }
-
         for (int i = static_cast<int>(num_keys_) + 1; i > pos + 1; --i) {
             children_[i] = children_[i-1];
         }
-
         keys_[pos] = key;
         children_[pos + 1] = right_child;
         ++num_keys_;
     }
-
 }

@@ -6,8 +6,6 @@
 
 
 // BPlus Tree implementation 
-//
-//
 namespace stratadb {
 
 // Constructor 
@@ -66,6 +64,7 @@ bool BPlusTree::search(int32_t key, int32_t& value_out) const {
       page_id_t current_page = root_page_id_;
       auto node = read_node(current_page);
 
+      // walk down from root to the right leaf      
       while (!node->is_leaf()) {
           auto* internal = static_cast<InternalNode*>(node.get());
           int child_idx = internal->find_child_index(key);
@@ -89,14 +88,16 @@ std::vector<std::pair<int32_t, int32_t>> BPlusTree::scan_all() const {
     }
 
     auto node = read_node(root_page_id_);
+    // go to the leftmost leaf 
     while (!node->is_leaf()) {
         auto* internal = static_cast<InternalNode*>(node.get());
         node = read_node(internal->child_at(0));
     }
+    // follow the leaf chain
     while (true) {
         auto* leaf = static_cast<LeafNode*>(node.get());
         for (uint32_t i = 0; i < leaf->num_keys(); i++) {
-            results.emplace_back(leaf->key_at(i), leaf->value_at(i));
+            results.push_back({leaf->key_at(i), leaf->value_at(i)});
         }
 
         page_id_t next = leaf->next_leaf();
@@ -140,6 +141,7 @@ bool BPlusTree::delete_key(int32_t key) {
 // Insert O(log n)
 
 void BPlusTree::insert(int32_t key, int32_t value) {
+    // first insert — create a leaf as root
     if (is_empty()) {
         LeafNode root_leaf;
         root_leaf.insert(key, value);
@@ -152,7 +154,7 @@ void BPlusTree::insert(int32_t key, int32_t value) {
     }
 
     SplitResult result = insert_recursive(root_page_id_, key, value);
-
+    // root split — need a new root above the two halves
     if(result.did_split) {
 
         InternalNode new_root;
@@ -174,7 +176,7 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
     if (node->is_leaf()) {
 
         auto*leaf = static_cast<LeafNode*>(node.get());
-
+        // if key already exists, update the value
         int existing = leaf->find_key(key);
         if (existing >= 0) {
             LeafNode updated;
@@ -195,6 +197,7 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
             write_node(node_page_id, *leaf);
             return SplitResult{};
         }
+        // leaf is full, need to split
         return split_leaf(*leaf, node_page_id, key, value);
     }
 
@@ -242,6 +245,7 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
             ++src;
         }
     }
+    // split at the middle
     int mid = (ORDER + 1) / 2;
 
     LeafNode left;
@@ -255,6 +259,7 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
     }
 
     page_id_t right_page = disk_manager_.allocate_page();
+    // fix the leaf chain pointers
     right.set_next_leaf(leaf.next_leaf());
     left.set_next_leaf(right_page);
     write_node(leaf_page_id, left);
@@ -271,7 +276,7 @@ SplitResult BPlusTree::split_internal(InternalNode& node,page_id_t node_page_id,
     while (insert_pos < ORDER && node.key_at(insert_pos) < key) {
         ++insert_pos;
     }
-
+    // merge existing keys + new key into one sorted array
     for (int i = 0, src = 0; i < ORDER + 1; ++i) {
         if (i == insert_pos) {
             all_keys[i] = key;
@@ -292,7 +297,7 @@ SplitResult BPlusTree::split_internal(InternalNode& node,page_id_t node_page_id,
 
     int mid = (ORDER + 1) / 2;
     int32_t promoted_key = all_keys[mid];
-
+    // divide into two halves, middle key goes up to parent
     InternalNode left;
     InternalNode right_node;
 
