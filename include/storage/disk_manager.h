@@ -19,8 +19,6 @@ using page_id_t = std::uint32_t;
 // - Read/write fixed-size pages by page_id
 // - Allocation of new pages
 // - Tracking total page count
-//
-// Essentially, this is the lowest layer of StrataDB.
 class DiskManager {
 
     private:
