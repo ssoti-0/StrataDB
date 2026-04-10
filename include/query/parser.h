@@ -60,6 +60,7 @@ std::vector<Token> tokenize(const std::string& sql);
     SelectStmt parse_select();
     DeleteStmt parse_delete();
     JoinSelectStmt parse_join();
+    SelectAllStmt parse_select_all();
 
     const Token& current() const;
     const Token& advance();

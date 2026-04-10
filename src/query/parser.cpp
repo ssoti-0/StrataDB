@@ -129,13 +129,13 @@ Statement Parser::parse(const std::string& sql) {
     } else if (parser.check(TokenType::INSERT)) {
         stmt = parser.parse_insert();
     } else if (parser.check(TokenType::SELECT)) {
-        // check if this is a join query
-        if (parser.tokens_.size() > 4 && parser.tokens_[parser.pos_ + 4].type == TokenType::JOIN) {
-            stmt = parser.parse_join();
-        } else {
-            stmt = parser.parse_select();
-        }
-
+      if (parser.tokens_.size() > 4 && parser.tokens_[parser.pos_ + 4].type == TokenType::JOIN) {
+          stmt = parser.parse_join();
+      } else if (parser.tokens_.size() > 4 && parser.tokens_[parser.pos_ + 4].type == TokenType::WHERE) {
+          stmt = parser.parse_select();
+      } else {
+          stmt = parser.parse_select_all();
+      }
     } else if (parser.check(TokenType::DELETE)) {
         stmt = parser.parse_delete();
     } else {
@@ -228,27 +228,37 @@ DeleteStmt Parser::parse_delete() {
     return stmt;
 }
 
+ SelectAllStmt Parser::parse_select_all() {
+    expect(TokenType::SELECT, "SELECT");
+    expect(TokenType::STAR, "SELECT *");
+    expect(TokenType::FROM, "SELECT * FROM");
+    const Token& name_tok = expect(TokenType::IDENTIFIER, "table name after FROM");
+    SelectAllStmt stmt;
+    stmt.table_name = name_tok.value;
+    return stmt;
+}
+
 JoinSelectStmt Parser::parse_join() {
-      expect(TokenType::SELECT, "SELECT");
-      expect(TokenType::STAR, "SELECT *");
-      expect(TokenType::FROM, "SELECT * FROM");
+    expect(TokenType::SELECT, "SELECT");
+    expect(TokenType::STAR, "SELECT *");
+    expect(TokenType::FROM, "SELECT * FROM");
 
-      const Token& left_table = expect(TokenType::IDENTIFIER,"left table name");
-      expect(TokenType::JOIN, "JOIN");
-      const Token& right_table = expect(TokenType::IDENTIFIER,"right table name");
-      expect(TokenType::ON, "ON");
-      const Token& on_left_table = expect(TokenType::IDENTIFIER,"table in ON");
-      expect(TokenType::DOT, "dot");
-      const Token& on_left_col = expect(TokenType::IDENTIFIER,"column in ON");
-      expect(TokenType::EQUALS, "= in ON");
-      const Token& on_right_table = expect(TokenType::IDENTIFIER,"table in ON clause");
-      expect(TokenType::DOT, "dot in table.column");
-      const Token& on_right_col = expect(TokenType::IDENTIFIER,"column in ON");
+    const Token& left_table = expect(TokenType::IDENTIFIER,"left table name");
+    expect(TokenType::JOIN, "JOIN");
+    const Token& right_table = expect(TokenType::IDENTIFIER,"right table name");
+    expect(TokenType::ON, "ON");
+    const Token& on_left_table = expect(TokenType::IDENTIFIER,"table in ON");
+    expect(TokenType::DOT, "dot");
+    const Token& on_left_col = expect(TokenType::IDENTIFIER,"column in ON");
+    expect(TokenType::EQUALS, "= in ON");
+    const Token& on_right_table = expect(TokenType::IDENTIFIER,"table in ON clause");
+    expect(TokenType::DOT, "dot in table.column");
+    const Token& on_right_col = expect(TokenType::IDENTIFIER,"column in ON");
 
-      JoinSelectStmt stmt;
-      stmt.left_table = left_table.value;
-      stmt.right_table = right_table.value;
-      if (on_left_table.value == left_table.value) {
+    JoinSelectStmt stmt;
+    stmt.left_table = left_table.value;
+    stmt.right_table = right_table.value;
+    if (on_left_table.value == left_table.value) {
         stmt.left_column = on_left_col.value;
         stmt.right_column = on_right_col.value;
     } else {

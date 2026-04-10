@@ -38,7 +38,8 @@ Executor::Executor(const std::string& base_dir) : base_dir_(base_dir) {
           return execute_select(*s);
       if (auto* s = std::get_if<DeleteStmt>(&stmt))
           return execute_delete(*s);
-
+      if (auto* s = std::get_if<SelectAllStmt>(&stmt))
+          return execute_select_all(*s);
       if (auto* s = std::get_if<JoinSelectStmt>(&stmt))
           return execute_join_select(*s);
       throw std::runtime_error("unknown statement type");
@@ -85,6 +86,18 @@ if (table.tree->delete_key(stmt.search_key)) {
 
     return "No row found with " + table.schema.key_column + "= " + std::to_string(stmt.search_key) + ".";
 }
+std::string Executor::execute_select_all(const SelectAllStmt& stmt) {
+    auto& table = get_table(stmt.table_name);
+    auto rows = table.tree->scan_all();
+    if (rows.empty()) {
+        return "No rows in table '" + stmt.table_name + "'.";
+    }
+    std::string result = table.schema.key_column + " | " + table.schema.value_column;
+    for (const auto& [k, v] : rows) {result += "\n" + std::to_string(k) + " | " + std::to_string(v);
+    }
+    return result;
+}
+
 std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {
       auto& left = get_table(stmt.left_table);
       auto& right = get_table(stmt.right_table);

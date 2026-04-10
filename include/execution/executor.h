@@ -40,6 +40,7 @@ private:
     std::string execute_insert(const InsertStmt& stmt);
     std::string execute_select(const SelectStmt& stmt);
     std::string execute_delete(const DeleteStmt& stmt);
+    std::string execute_select_all(const SelectAllStmt& stmt);
     std::string execute_join_select(const JoinSelectStmt& stmt);
     TableInfo& get_table(const std::string& name);
     // schema persistence in page 0 of each table's file
