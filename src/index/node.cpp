@@ -95,6 +95,45 @@ bool LeafNode::remove_at(int index) {
     --num_keys_;
     return true;
 }
+void LeafNode::prepend(int32_t key, const std::string& value) {
+    for (int i = static_cast<int>(num_keys_); i > 0; --i) {
+        keys_[i] = keys_[i - 1];
+        values_[i] = values_[i - 1];
+    }
+    keys_[0] = key;
+    values_[0] = value;
+    ++num_keys_;
+}
+
+std::pair<int32_t, std::string> LeafNode::pop_back() {
+    int last = static_cast<int>(num_keys_) - 1;
+    auto result = std::make_pair(keys_[last], values_[last]);
+    keys_[last] = 0;
+    values_[last].clear();
+    --num_keys_;
+    return result;
+}
+std::pair<int32_t, std::string> LeafNode::pop_front() {
+    auto result = std::make_pair(keys_[0], values_[0]);
+    for (int i = 0; i < static_cast<int>(num_keys_) - 1; ++i) {
+        keys_[i] = keys_[i + 1];
+        values_[i] = values_[i + 1];
+    }
+    int last = static_cast<int>(num_keys_) - 1;
+    keys_[last] = 0;
+    values_[last].clear();
+    --num_keys_;
+    return result;
+}
+
+void LeafNode::append_from(const LeafNode& other) {
+    for (uint32_t i = 0; i < other.num_keys_; ++i) {
+        keys_[num_keys_ + i] = other.keys_[i];
+        values_[num_keys_ + i] = other.values_[i];
+    }
+    num_keys_ += other.num_keys_;
+}
+
 // write internal node to page  
 void InternalNode::serialize(Page& page) const {
      page.fill(0);
@@ -153,4 +192,69 @@ int InternalNode::find_child_index(int32_t key) const {
         children_[pos + 1] = right_child;
         ++num_keys_;
     }
+
+    void InternalNode::remove_key_and_child(int key_index, int child_index) {
+      for (int i = key_index; i < static_cast<int>(num_keys_) - 1; ++i) {
+          keys_[i] = keys_[i + 1];
+      }
+      keys_[num_keys_ - 1] = 0;
+
+      for (int i = child_index; i < static_cast<int>(num_keys_); ++i) {
+          children_[i] = children_[i + 1];
+      }
+      children_[num_keys_] = 0;
+
+      --num_keys_;
+  }
+
+  void InternalNode::prepend_key_child(int32_t key, page_id_t left_child) {
+      for (int i = static_cast<int>(num_keys_); i > 0; --i) {
+          keys_[i] = keys_[i - 1];
+      }
+      for (int i = static_cast<int>(num_keys_) + 1; i > 0; --i) {
+          children_[i] = children_[i - 1];
+      }
+      keys_[0] = key;
+      children_[0] = left_child;
+      ++num_keys_;
+  }
+
+  std::pair<int32_t, page_id_t> InternalNode::pop_back_key_child() {
+      int last_key = static_cast<int>(num_keys_) - 1;
+      auto result = std::make_pair(keys_[last_key], children_[num_keys_]);
+      keys_[last_key] = 0;
+      children_[num_keys_] = 0;
+      --num_keys_;
+      return result;
+  }
+
+  std::pair<int32_t, page_id_t> InternalNode::pop_front_key_child() {
+      auto result = std::make_pair(keys_[0], children_[0]);
+      for (int i = 0; i < static_cast<int>(num_keys_) - 1; ++i) {
+          keys_[i] = keys_[i + 1];
+      }
+      keys_[num_keys_ - 1] = 0;
+      for (int i = 0; i < static_cast<int>(num_keys_); ++i) {
+          children_[i] = children_[i + 1];
+      }
+      children_[num_keys_] = 0;
+      --num_keys_;
+      return result;
+  }
+
+  void InternalNode::append_separator_and_node(int32_t separator,
+                                               const InternalNode& other) {
+      keys_[num_keys_] = separator;
+      ++num_keys_;
+
+      for (uint32_t i = 0; i < other.num_keys_; ++i) {
+          keys_[num_keys_ + i] = other.keys_[i];
+      }
+      children_[num_keys_] = other.children_[0];
+      for (uint32_t i = 0; i < other.num_keys_; ++i) {
+          children_[num_keys_ + 1 + i] = other.children_[i + 1];
+      }
+      num_keys_ += other.num_keys_;
+  }
+
 }

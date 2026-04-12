@@ -12,6 +12,7 @@ namespace stratadb {
 //Max keys per node. 
 constexpr int ORDER = 4;
 constexpr std::size_t MAX_VALUE_SIZE = 120; 
+constexpr int MIN_KEYS = (ORDER + 1) / 2;
 
 //Each node is one 4096-byte page on disk.
 class Node {
@@ -30,6 +31,7 @@ public:
     bool is_leaf() const { return is_leaf_;}
     uint32_t num_keys() const { return num_keys_;}
     int32_t key_at (int index) const { return keys_[index]; }
+    void set_key_at(int index, int32_t key) { keys_[index] = key; }
 
     // Converting node to disk page format 
     virtual void serialize(Page& page) const = 0;
@@ -60,6 +62,12 @@ public:
     void insert(int32_t key, const std::string& value);
 
     bool remove_at(int index);
+    //rebalancing helpers
+    bool is_underflow() const { return num_keys_ < MIN_KEYS; }
+    void prepend(int32_t key, const std::string& value);
+    std::pair<int32_t, std::string> pop_back();
+    std::pair<int32_t, std::string> pop_front();
+    void append_from(const LeafNode& other);
 
     void serialize(Page& page) const override;
     static std::unique_ptr<LeafNode> deserialize_leaf(const Page& page);
@@ -84,6 +92,12 @@ public:
     int find_child_index(int32_t key) const;
 
     void insert_key_child(int32_t key, page_id_t right_child);
+    bool is_underflow() const { return num_keys_ < MIN_KEYS; }
+    void remove_key_and_child(int key_index, int child_index);
+    void prepend_key_child(int32_t key, page_id_t left_child);
+    std::pair<int32_t, page_id_t> pop_back_key_child();
+    std::pair<int32_t, page_id_t> pop_front_key_child();
+    void append_separator_and_node(int32_t separator, const InternalNode& other);
 
     void serialize(Page& page) const override;
     static std::unique_ptr<InternalNode> deserialize_internal(const Page& page);

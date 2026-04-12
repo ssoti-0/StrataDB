@@ -22,6 +22,10 @@ struct SplitResult {
     int32_t promoted_key = 0;
     page_id_t new_page_id = 0;
 };
+struct DeleteResult {
+    bool key_found = false;
+    bool did_underflow = false;
+};
 
 class BPlusTree {
     private:
