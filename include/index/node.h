@@ -92,6 +92,7 @@ public:
     int find_child_index(int32_t key) const;
 
     void insert_key_child(int32_t key, page_id_t right_child);
+    //rebalancing helpers 
     bool is_underflow() const { return num_keys_ < MIN_KEYS; }
     void remove_key_and_child(int key_index, int child_index);
     void prepend_key_child(int32_t key, page_id_t left_child);

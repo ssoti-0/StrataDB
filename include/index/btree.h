@@ -45,6 +45,17 @@ class BPlusTree {
     // Splits a full inernal node and returns promoted key and new right page 
     SplitResult split_internal(InternalNode& node, page_id_t node_page_id, int32_t key, page_id_t right_child);
 
+    DeleteResult del_recursive(page_id_t page, int32_t key);
+
+    void fix_underflow(InternalNode& parent, page_id_t parent_page, int idx);
+    void borrow_leaf_right(LeafNode& leaf, page_id_t leaf_page,LeafNode& right, page_id_t right_page,InternalNode& parent, int sep);
+    void borrow_leaf_left(LeafNode& leaf, page_id_t leaf_page,LeafNode& left, page_id_t left_page,InternalNode& parent, int sep);
+    void merge_leaf(LeafNode& left, page_id_t left_page,LeafNode& right, page_id_t right_page,InternalNode& parent, page_id_t parent_page, int sep);
+    void borrow_internal_right(InternalNode& node, page_id_t node_page,InternalNode& right, page_id_t right_page,InternalNode& parent, int sep);
+    void borrow_internal_left(InternalNode& node, page_id_t node_page,InternalNode& left, page_id_t left_page,InternalNode& parent, int sep);
+    void merge_internal(InternalNode& left, page_id_t left_page,InternalNode& right, page_id_t right_page,InternalNode& parent, page_id_t parent_page, int sep);
+
+
     public:
     //Init. of B+ tree
     explicit BPlusTree(DiskManager& disk_manager);
