@@ -11,6 +11,7 @@ namespace stratadb {
 
 //Max keys per node. 
 constexpr int ORDER = 4;
+constexpr std::size_t MAX_VALUE_SIZE = 120; 
 
 //Each node is one 4096-byte page on disk.
 class Node {
@@ -41,13 +42,13 @@ public:
 class LeafNode : public Node {
 
 private:
-    std::array<int32_t, ORDER> values_{};
+    std::array<std::string, ORDER> values_{};
     page_id_t next_leaf_=0; //Page Id of next leaf 
 
 public:
     LeafNode() : Node (true) {}
 
-    int32_t value_at(int index) const { return values_[index]; }
+    const std::string& value_at(int index) const { return values_[index]; }
     page_id_t next_leaf() const { return next_leaf_;}
     bool is_full() const {return num_keys_ == ORDER; }
 
@@ -56,7 +57,7 @@ public:
     // Search for a key, return index if found, -1 otherwise
     int find_key(int32_t key) const;
 
-    void insert(int32_t key, int32_t value);
+    void insert(int32_t key, const std::string& value);
 
     bool remove_at(int index);
 

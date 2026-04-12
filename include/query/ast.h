@@ -10,12 +10,13 @@ struct CreateTableStmt {
     std::string table_name;
     std::string key_column;    
     std::string value_column;  
+    std::string value_type;
 };
 
 struct InsertStmt {
     std::string table_name;
     int32_t key;
-    int32_t value;
+    std::string value;
 };
 
 struct SelectStmt {

@@ -23,10 +23,12 @@ enum class TokenType {
     KEY,
     JOIN,
     ON,
+    TEXT,
 
      
     IDENTIFIER,  
-    INTEGER,     
+    INTEGER,  
+    STRING,   
 
      
     LPAREN,      

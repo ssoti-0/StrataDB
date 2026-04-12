@@ -23,6 +23,7 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"KEY", TokenType::KEY},
     {"JOIN",TokenType::JOIN},
     {"ON", TokenType::ON},
+    {"TEXT", TokenType::TEXT},
 };
 
 static std::string token_type_name(TokenType type) {
@@ -41,8 +42,10 @@ static std::string token_type_name(TokenType type) {
         case TokenType::KEY:return "KEY";
         case TokenType::JOIN:return "JOIN";
         case TokenType::ON:return "ON";
+        case TokenType::TEXT:return "TEXT";
         case TokenType::IDENTIFIER:return "identifier";
         case TokenType::INTEGER:return "integer";
+        case TokenType::STRING:return "string";
         case TokenType::LPAREN:return "'('";
         case TokenType::RPAREN:return "')'";
         case TokenType::COMMA:return "','";
@@ -78,6 +81,21 @@ std::vector<Token> tokenize(const std::string& sql) {
         case ';': tokens.push_back({TokenType::SEMICOLON,";", start}); i++; continue;
         default: break;
     }
+
+    if (sql[i] == '\'') {
+        i++;  
+        while (i < sql.size() && sql[i] != '\'') {
+            ++i;
+        }
+        if (i >= sql.size()) {
+            throw std::runtime_error("Lexer error: unterminated string literal");
+        }
+        std::string str_val = sql.substr(start + 1, i - start - 1);
+        i++;  
+        tokens.push_back({TokenType::STRING, str_val, start});
+        continue;
+    }
+
 
     if (std::isdigit(static_cast<unsigned char>(sql[i])) ||
               (sql[i] == '-' && i + 1 < sql.size() &&
@@ -161,7 +179,15 @@ CreateTableStmt Parser::parse_create_table() {
 
     const Token& key_col = expect(TokenType::IDENTIFIER,"primary key column name");
     stmt.key_column = key_col.value;
-    expect(TokenType::INT, "Int type");
+    if (check(TokenType::INT)) {
+        advance();
+        stmt.value_type = "INT";
+    } else if (check(TokenType::TEXT)) {
+        advance();
+        stmt.value_type = "TEXT";
+    } else {
+        error("expected INT or TEXT for column type");
+    }
     expect(TokenType::PRIMARY, "PRIMARY KEY");
     expect(TokenType::KEY, "KEY");
     expect(TokenType::COMMA, "comma");
@@ -185,8 +211,17 @@ InsertStmt Parser::parse_insert() {
     stmt.key = std::stoi(key_tok.value);
     expect(TokenType::COMMA, "between values");
 
-    const Token& val_tok = expect(TokenType::INTEGER,"value");
-    stmt.value = std::stoi(val_tok.value);
+    if (check(TokenType::INTEGER)) {
+        const Token& val_tok = advance();
+        stmt.value = val_tok.value;
+    } else if (check(TokenType::STRING)) {
+        const Token& val_tok = advance();
+        stmt.value = val_tok.value;
+    } else {
+        error("expected integer or string value");
+    }
+
+
 
     expect(TokenType::RPAREN, "closing paren");
 

@@ -30,8 +30,10 @@ namespace stratadb {
         std::memcpy(page.data() + offset, keys_.data(), ORDER * sizeof(int32_t));
         offset += ORDER * sizeof(int32_t);
 
-        std::memcpy(page.data() + offset, values_.data(), ORDER * sizeof(int32_t));
-        offset += ORDER * sizeof(int32_t);
+        for (int i = 0; i < ORDER; ++i) {
+          std::memcpy(page.data() + offset, values_[i].c_str(),std::min(values_[i].size() + 1, MAX_VALUE_SIZE));
+          offset += MAX_VALUE_SIZE;
+        }
 
         std::memcpy(page.data() + offset, &next_leaf_, sizeof(uint32_t));
     }
@@ -40,8 +42,10 @@ namespace stratadb {
        std::size_t offset = 0;
        offset += sizeof(uint32_t);
 
-       std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
-       offset += sizeof(uint32_t);
+       for (int i = 0; i < ORDER; ++i) {
+          node->values_[i] = std::string(page.data() + offset);
+          offset += MAX_VALUE_SIZE;
+        }
         if (node->num_keys_ > ORDER) {
             throw std::runtime_error("LeafNode::deserialize: num_keys " + std::to_string(node->num_keys_) + " esceeds ORDER" + std::to_string(ORDER));
         }
@@ -63,7 +67,7 @@ namespace stratadb {
         return -1;
     }
 
-    void LeafNode::insert(int32_t key, int32_t value) {
+    void LeafNode::insert(int32_t key, const std::string& value) {
         int pos = 0;
         while (pos < static_cast<int>(num_keys_) && keys_[pos] < key) {
             ++pos;
@@ -87,7 +91,7 @@ bool LeafNode::remove_at(int index) {
         values_[i] = values_[i + 1];
     }
     keys_[num_keys_ - 1] = 0;
-    values_[num_keys_ - 1] = 0;
+    values_[num_keys_ - 1].clear();
     --num_keys_;
     return true;
 }
