@@ -18,6 +18,7 @@ struct Schema {
     std::string table_name;
     std::string key_column;
     std::string value_column;
+    std::string value_type;
 };
 // bundles everything a single table needs
 struct TableInfo {

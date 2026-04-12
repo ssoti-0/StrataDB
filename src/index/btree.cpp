@@ -56,7 +56,7 @@ void BPlusTree::write_node(page_id_t page_id, const Node& node) {
 
 // Search O(log n)
 
-bool BPlusTree::search(int32_t key, int32_t& value_out) const {
+bool BPlusTree::search(int32_t key, std::string& value_out) const {
       if (is_empty()) {
           return false;
       }
@@ -80,8 +80,8 @@ bool BPlusTree::search(int32_t key, int32_t& value_out) const {
       }
       return false;
   }
-std::vector<std::pair<int32_t, int32_t>> BPlusTree::scan_all() const {
-    std::vector<std::pair<int32_t, int32_t>> results;
+std::vector<std::pair<int32_t, std::string>> BPlusTree::scan_all() const {   
+      std::vector<std::pair<int32_t, std::string>> results;
 
     if (is_empty()) {
         return results;
@@ -140,7 +140,7 @@ bool BPlusTree::delete_key(int32_t key) {
 
 // Insert O(log n)
 
-void BPlusTree::insert(int32_t key, int32_t value) {
+void BPlusTree::insert(int32_t key, const std::string& value) {
     // first insert — create a leaf as root
     if (is_empty()) {
         LeafNode root_leaf;
@@ -170,7 +170,7 @@ void BPlusTree::insert(int32_t key, int32_t value) {
 
 // Insert Recursive
 
-SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int32_t value) {
+SplitResult BPlusTree::insert_recursive(page_id_t node_page_id,int32_t key, const std::string& value) {
     auto node = read_node(node_page_id);
 
     if (node->is_leaf()) {
@@ -227,9 +227,9 @@ SplitResult BPlusTree::insert_recursive(page_id_t node_page_id, int32_t key, int
 
 }
 
- SplitResult BPlusTree::split_leaf(LeafNode& leaf, page_id_t leaf_page_id,int32_t key, int32_t value) {
+SplitResult BPlusTree::split_leaf(LeafNode& leaf, page_id_t leaf_page_id,int32_t key, const std::string& value) {
     std::array<int32_t, ORDER + 1> all_keys{};
-    std::array<int32_t, ORDER + 1> all_values{};
+    std::array<std::string, ORDER + 1> all_values{};
 
     int insert_pos = 0;
     while (insert_pos < ORDER && leaf.key_at(insert_pos) < key) {

@@ -10,6 +10,7 @@ static constexpr std::size_t SCHEMA_INIT_OFFSET = 4;
 static constexpr std::size_t TABLE_NAME_OFFSET = 8;
 static constexpr std::size_t KEY_COLUMN_OFFSET = 72;
 static constexpr std::size_t VALUE_COLUMN_OFFSET = 136;
+static constexpr std::size_t VALUE_TYPE_OFFSET = 200;  
 static constexpr std::size_t IDENT_FIELD_SIZE = 64;
 
 Executor::Executor(const std::string& base_dir) : base_dir_(base_dir) {
@@ -59,6 +60,7 @@ std::string Executor::execute_create(const CreateTableStmt& stmt) {
     handle.schema.table_name = stmt.table_name;
     handle.schema.key_column = stmt.key_column;
     handle.schema.value_column = stmt.value_column;
+    handle.schema.value_type = stmt.value_type;
     write_schema(*handle.disk_manager, handle.schema);
     tables_[stmt.table_name] = std::move(handle);
     return "Table '" + stmt.table_name + "' created.";
@@ -71,10 +73,9 @@ std::string Executor::execute_insert(const InsertStmt& stmt) {
 std::string Executor::execute_select(const SelectStmt& stmt) {
     auto& table = get_table(stmt.table_name);
 
-    int32_t value = 0;
+    std::string value;
     if (table.tree->search(stmt.search_key, value)) {
-        return table.schema.key_column + "|" + table.schema.value_column + "\n" + std::to_string(stmt.search_key) + " | " +
-            std::to_string(value);
+        return table.schema.key_column + " | " + table.schema.value_column + "\n" + std::to_string(stmt.search_key) + " | " + value;
     }
     return "No row found with " + table.schema.key_column + " = " + std::to_string(stmt.search_key) + ".";
 }
@@ -93,7 +94,7 @@ std::string Executor::execute_select_all(const SelectAllStmt& stmt) {
         return "No rows in table '" + stmt.table_name + "'.";
     }
     std::string result = table.schema.key_column + " | " + table.schema.value_column;
-    for (const auto& [k, v] : rows) {result += "\n" + std::to_string(k) + " | " + std::to_string(v);
+    for (const auto& [k, v] : rows) {result += "\n" + std::to_string(k) + " | " + (v);
     }
     return result;
 }
@@ -113,11 +114,11 @@ std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {
     // checking every pair
     int match_count = 0;
     for (const auto& [lk, lv] : left_rows) {
-        int32_t l_val = left_uses_key ? lk : lv;
+        std::string l_val = left_uses_key ? std::to_string(lk) : lv;
         for (const auto& [rk, rv] : right_rows) {
-            int32_t r_val = right_uses_key ? rk : rv;
+            std::string r_val = right_uses_key ? std::to_string(rk) : rv;
             if (l_val == r_val) {
-                result += "\n" + std::to_string(lk) + " | " + std::to_string(lv) + " | " + std::to_string(rk) + " | " + std::to_string(rv);
+                result += "\n" + std::to_string(lk) + " | " + lv + " | " + std::to_string(rk) + "" + rv;
                 ++match_count;
             }
         }
@@ -155,6 +156,8 @@ Schema Executor::read_schema(DiskManager& dm) const {
     schema.table_name = std::string(page.data() + TABLE_NAME_OFFSET);
     schema.key_column = std::string(page.data() + KEY_COLUMN_OFFSET);
     schema.value_column = std::string(page.data() + VALUE_COLUMN_OFFSET);
+    schema.value_type = std::string(page.data() + VALUE_TYPE_OFFSET);         
+    if (schema.value_type.empty()) schema.value_type = "INT"; 
     return schema;
 }
 // write schema fields to page 0, careful not to overwrite btree's root pointer at bytes 0..3
@@ -170,7 +173,8 @@ Schema Executor::read_schema(DiskManager& dm) const {
     std::memcpy(page.data() + KEY_COLUMN_OFFSET,schema.key_column.c_str(), schema.key_column.size() + 1);
     std::memset(page.data() + VALUE_COLUMN_OFFSET, 0, IDENT_FIELD_SIZE);
     std::memcpy(page.data() + VALUE_COLUMN_OFFSET,schema.value_column.c_str(), schema.value_column.size() + 1);
-
+    std::memset(page.data() + VALUE_TYPE_OFFSET, 0, IDENT_FIELD_SIZE);
+    std::memcpy(page.data() + VALUE_TYPE_OFFSET, schema.value_type.c_str(),schema.value_type.size() + 1);
     dm.write_page(0, page);
 }
 } 

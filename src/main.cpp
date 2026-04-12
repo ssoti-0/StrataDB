@@ -82,16 +82,16 @@ static void test_nodes() {
     std::cout << "\n Node tests\n";
 
     stratadb::LeafNode leaf;
-    leaf.insert(30, 300);
-    leaf.insert(10, 100);
-    leaf.insert(20, 200);
+    leaf.insert(30, "300");
+    leaf.insert(10, "100");
+    leaf.insert(20, "200");
 
     check(leaf.num_keys() == 3,"Leaf has 3 keys after 3 inserts");
     check(leaf.key_at(0) == 10,"keys sorted: index 0 is 10");
     check(leaf.key_at(2) == 30,"keys sorted: index 2 is 30");
     check(leaf.find_key(20) == 1, "find_key(20) returns 1");
     check(leaf.find_key(99) == -1, "find_key(99) returns -1 (not found)");
-    check(leaf.value_at(2) == 300, "value at index 2 is 300");
+    check(leaf.value_at(2) == "300", "value at index 2 is 300");
 
     // serialize and read back to make sure nothing gets lost
     stratadb::Page page{};
@@ -102,7 +102,7 @@ static void test_nodes() {
 
     auto* leaf2 = static_cast<stratadb::LeafNode*>(desirialized.get());
     check(leaf2->key_at(0) == 10, "roundtrip: key 0 is 10");
-    check(leaf2->value_at(1) == 200, "roundtrip: value 1 is 200");
+    check(leaf2->value_at(1) == "200", "roundtrip: value 1 is 200");
 
     stratadb::InternalNode internal;
     internal.set_child(0, 100);
@@ -126,16 +126,16 @@ static void test_btree() {
 
     check(tree.is_empty(), "new tree is empty");
 
-    int32_t val = -1;
+    std::string val;
     check(!tree.search(42, val), "search in empty tree returns false");
 
-    tree.insert(10, 100);
-    tree.insert(30, 300);
-    tree.insert(20, 200);
-    tree.insert(40, 400);
+    tree.insert(10, "100");
+    tree.insert(30, "300");
+    tree.insert(20, "200");
+    tree.insert(40, "400");
 
-    check(tree.search(10, val) && val == 100, "key 10 found");
-    check(tree.search(30, val) && val == 300, "key 30 found");
+    check(tree.search(10, val) && val == "100", "key 10 found");
+    check(tree.search(30, val) && val == "300", "key 30 found");
     check(!tree.search(99, val), "key 99 not found");
 
     std::remove(f.c_str());
@@ -151,12 +151,12 @@ static void test_btree_splits() {
     stratadb::BPlusTree tree(dm);
 
     for (int i = 1; i <= 25; ++i) {
-        tree.insert(i, i * 10);
+        tree.insert(i, std::to_string(i * 10));
     }
     bool all_found = true;
     for (int i = 1; i <= 25; ++i) {
-        int32_t val;
-        if (!tree.search(i, val) || val != i * 10) {
+        std::string val;
+        if (!tree.search(i, val) || val != std::to_string(i * 10)) {
             std::cout << "    MISSING key " << i << "\n";
             all_found = false;
         }
@@ -175,13 +175,13 @@ static void test_btree_delete() {
     stratadb::DiskManager dm(f);
     stratadb::BPlusTree tree(dm);
 
-    tree.insert(10, 100);
-    tree.insert(20, 200);
+    tree.insert(10, "100");
+    tree.insert(20, "200");
 
-    int32_t val = -1;
+    std::string val;
     check(tree.delete_key(10), "delete_key returns true");
     check(!tree.search(10, val), "deleted key is gone");
-    check(tree.search(20, val) && val == 200, "other key still there");
+    check(tree.search(20, val) && val == "200", "other key still there");
 
     std::remove(f.c_str());
 }
@@ -198,7 +198,7 @@ static void test_parser() {
         auto stmt = stratadb::Parser::parse("INSERT INTO students VALUES (42, 95)");
         auto& insert = std::get<stratadb::InsertStmt>(stmt);
         check(insert.key == 42, "INSERT parses key");
-        check(insert.value == 95, "INSERT parses value");
+        check(insert.value == "95", "INSERT parses value");
     }
     {
         auto stmt = stratadb::Parser::parse("SELECT * FROM students WHERE id = 42");
@@ -246,12 +246,12 @@ static void test_join() {
     std::remove("testdata/grades.db");
     stratadb::Executor exec("testdata");
 
-    run_sql(exec, "CREATE TABLE students (id INT PRIMARY KEY, name INT)");
-    run_sql(exec, "CREATE TABLE grades (sid INT PRIMARY KEY, score INT)");
-    run_sql(exec, "INSERT INTO students VALUES (1, 10)");
-    run_sql(exec, "INSERT INTO students VALUES (2, 20)");
-    run_sql(exec, "INSERT INTO grades VALUES (1, 95)");
-    run_sql(exec, "INSERT INTO grades VALUES (3, 80)");
+    run_sql(exec,"CREATE TABLE students (id INT PRIMARY KEY, name INT)");
+    run_sql(exec,"CREATE TABLE grades (sid INT PRIMARY KEY, score INT)");
+    run_sql(exec,"INSERT INTO students VALUES (1, 10)");
+    run_sql(exec,"INSERT INTO students VALUES (2, 20)");
+    run_sql(exec,"INSERT INTO grades VALUES (1, 95)");
+    run_sql(exec,"INSERT INTO grades VALUES (3, 80)");
 
     auto result = run_sql(exec,"SELECT * FROM students JOIN grades ON students.id = grades.sid");
     check(result.find("95") != std::string::npos, "join found matching row");
