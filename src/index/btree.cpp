@@ -129,6 +129,151 @@ std::vector<std::pair<int32_t, std::string>> BPlusTree::scan_all() const {
       return true;
   }
 
+DeleteResult BPlusTree::del_recursive(page_id_t page, int32_t key) {
+    auto node = read_node(page);
+    if (node->is_leaf()) {
+        auto* leaf = static_cast<LeafNode*>(node.get());
+        int idx = leaf->find_key(key);
+        if (idx < 0) {
+            return DeleteResult{false, false};
+        }
+        leaf->remove_at(idx);
+        write_node(page, *leaf);
+        return DeleteResult{true, leaf->is_underflow()};
+    }
+    auto* internal = static_cast<InternalNode*>(node.get());
+    int child_idx = internal->find_child_index(key);
+    page_id_t child_page = internal->child_at(child_idx);
+    DeleteResult cr = del_recursive(child_page, key);
+
+    if (!cr.key_found || !cr.did_underflow) {
+        return DeleteResult{cr.key_found, false};
+    }
+    fix_underflow(*internal, page, child_idx);
+
+    auto updated = read_node(page);
+    auto* ui = static_cast<InternalNode*>(updated.get());
+    return DeleteResult{true, ui->is_underflow()};
+}
+
+void BPlusTree::fix_underflow(InternalNode& parent,page_id_t parent_page,int idx) {
+    page_id_t child_page = parent.child_at(idx);
+    auto child = read_node(child_page);
+    bool has_left = (idx > 0);
+    bool has_right = (idx < static_cast<int>(parent.num_keys()));
+    if (child->is_leaf()) {
+        auto* leaf = static_cast<LeafNode*>(child.get());
+        if (has_right) {
+            page_id_t rp = parent.child_at(idx + 1);
+            auto rn = read_node(rp);
+            auto* rl = static_cast<LeafNode*>(rn.get());
+            if (rl->num_keys() > MIN_KEYS) {
+                borrow_leaf_right(*leaf, child_page, *rl, rp, parent, idx);
+                write_node(parent_page, parent);
+                return;
+            }
+        }
+        if (has_left) {
+            page_id_t lp = parent.child_at(idx - 1);
+            auto ln = read_node(lp);
+            auto* ll = static_cast<LeafNode*>(ln.get());
+            if (ll->num_keys() > MIN_KEYS) {
+                borrow_leaf_left(*leaf, child_page, *ll, lp, parent, idx - 1);
+                write_node(parent_page, parent);
+                return;
+            }
+        }
+        if (has_left) {
+            page_id_t lp = parent.child_at(idx - 1);
+            auto ln = read_node(lp);
+            auto* ll = static_cast<LeafNode*>(ln.get());
+            merge_leaf(*ll, lp, *leaf, child_page,parent, parent_page, idx - 1);
+        } else {
+            page_id_t rp = parent.child_at(idx + 1);
+            auto rn = read_node(rp);
+            auto* rl = static_cast<LeafNode*>(rn.get());
+            merge_leaf(*leaf, child_page, *rl, rp,parent, parent_page, idx);
+        }
+    } else {
+        auto* ic = static_cast<InternalNode*>(child.get());
+        if (has_right) {
+            page_id_t rp = parent.child_at(idx + 1);
+            auto rn = read_node(rp);
+            auto* ri = static_cast<InternalNode*>(rn.get());
+            if (ri->num_keys() > MIN_KEYS) {
+                borrow_internal_right(*ic, child_page, *ri, rp, parent, idx);
+                write_node(parent_page, parent);
+                return;
+            }
+        }
+        if (has_left) {
+            page_id_t lp = parent.child_at(idx - 1);
+            auto ln = read_node(lp);
+            auto* li = static_cast<InternalNode*>(ln.get());
+            if (li->num_keys() > MIN_KEYS) {
+                borrow_internal_left(*ic, child_page, *li, lp, parent, idx - 1);
+                write_node(parent_page, parent);
+                return;
+            }
+        }
+        if (has_left) {
+            page_id_t lp = parent.child_at(idx - 1);
+            auto ln = read_node(lp);
+            auto* li = static_cast<InternalNode*>(ln.get());
+            merge_internal(*li, lp, *ic, child_page,parent, parent_page, idx - 1);
+        } else {
+            page_id_t rp = parent.child_at(idx + 1);
+            auto rn = read_node(rp);
+            auto* ri = static_cast<InternalNode*>(rn.get());
+            merge_internal(*ic, child_page, *ri, rp,parent, parent_page, idx);
+        }
+    }
+}
+void BPlusTree::borrow_leaf_right(LeafNode& leaf, page_id_t leaf_page,LeafNode& right, page_id_t right_page,InternalNode& parent, int sep) {
+    auto [key, value] = right.pop_front();
+    leaf.insert(key, value);
+    parent.set_key_at(sep, right.key_at(0));
+    write_node(leaf_page, leaf);
+    write_node(right_page, right);
+}
+
+void BPlusTree::borrow_leaf_left(LeafNode& leaf, page_id_t leaf_page,LeafNode& left, page_id_t left_page,InternalNode& parent, int sep) {
+    auto [key, value] = left.pop_back();
+    leaf.prepend(key, value);
+    parent.set_key_at(sep, leaf.key_at(0));
+    write_node(leaf_page, leaf);
+    write_node(left_page, left);
+}
+void BPlusTree::merge_leaf(LeafNode& left, page_id_t left_page,LeafNode& right, page_id_t right_page,InternalNode& parent, page_id_t parent_page,int sep) {
+    left.append_from(right);
+    left.set_next_leaf(right.next_leaf());
+    parent.remove_key_and_child(sep, sep + 1);
+    write_node(left_page, left);
+    write_node(parent_page, parent);
+}
+void BPlusTree::borrow_internal_right(InternalNode& node, page_id_t node_page,InternalNode& right, page_id_t right_page,InternalNode& parent, int sep) {
+    int32_t separator = parent.key_at(sep);
+    auto [rk, rc] = right.pop_front_key_child();
+    node.insert_key_child(separator, rc);
+    parent.set_key_at(sep, rk);
+    write_node(node_page, node);
+    write_node(right_page, right);
+}
+void BPlusTree::borrow_internal_left(InternalNode& node, page_id_t node_page,InternalNode& left, page_id_t left_page,InternalNode& parent, int sep) {
+    int32_t separator = parent.key_at(sep);
+    auto [lk, lc] = left.pop_back_key_child();
+    node.prepend_key_child(separator, lc);
+    parent.set_key_at(sep, lk);
+    write_node(node_page, node);
+    write_node(left_page, left);
+}
+void BPlusTree::merge_internal(InternalNode& left, page_id_t left_page,InternalNode& right, page_id_t right_page,InternalNode& parent, page_id_t parent_page,int sep) {
+    int32_t separator = parent.key_at(sep);
+    left.append_separator_and_node(separator, right);
+    parent.remove_key_and_child(sep, sep + 1);
+    write_node(left_page, left);
+    write_node(parent_page, parent);
+}
 
 // Insert O(log n)
 

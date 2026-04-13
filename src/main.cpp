@@ -256,6 +256,61 @@ static void test_join() {
     auto result = run_sql(exec,"SELECT * FROM students JOIN grades ON students.id = grades.sid");
     check(result.find("95") != std::string::npos, "join found matching row");
 }
+
+ static void test_rebalancing() {                                                                  
+    const std::string f = "test_rebal.db";
+    std::remove(f.c_str());                                                                                   
+    std::cout << "\nRebalancing tests\n";
+    stratadb::DiskManager dm(f);
+    stratadb::BPlusTree tree(dm);
+    // delete to empty + re-insert
+    tree.insert(10, "100");
+    tree.insert(20, "200");
+    tree.insert(30, "300");
+    tree.delete_key(10);
+    tree.delete_key(20);
+    tree.delete_key(30);
+    check(tree.is_empty(), "empty after deleting all keys");
+    tree.insert(50, "500");
+    std::string val;
+    check(tree.search(50, val) && val == "500", "re-insert after empty works");
+    tree.delete_key(50);
+
+    // bulk insert then forward delete
+    for (int i = 1; i <= 25; ++i)
+        tree.insert(i, std::to_string(i * 10));
+
+    bool fwd_ok = true;
+    for (int i = 1; i <= 25; ++i) {
+        if (!tree.delete_key(i)) fwd_ok = false;
+    }
+    check(fwd_ok && tree.is_empty(), "25 keys deleted forward");
+    // bulk insert then reverse delete
+    for (int i = 1; i <= 25; ++i)
+        tree.insert(i, std::to_string(i * 10));
+    bool rev_ok = true;
+    for (int i = 25; i >= 1; --i) {
+        if (!tree.delete_key(i)) rev_ok = false;
+    }
+    check(rev_ok && tree.is_empty(), "25 keys deleted reverse");
+
+    // partial delete + re-insert
+    for (int i = 1; i <= 15; ++i)
+        tree.insert(i, std::to_string(i * 10));
+    for (int i = 1; i <= 10; ++i)
+          tree.delete_key(i);
+    for (int i = 100; i <= 109; ++i)
+        tree.insert(i, std::to_string(i));
+    auto rows = tree.scan_all();
+    check(static_cast<int>(rows.size()) == 15, "15 rows after partial delete + re-insert");
+    bool sorted = true;
+    for (int i = 1; i < static_cast<int>(rows.size()); ++i) {
+        if (rows[i].first <= rows[i - 1].first) sorted = false;
+    }
+    check(sorted, "scan_all in sorted order");
+    std::remove(f.c_str());
+}
+
 int main() {
     test_disk_manager();
     test_nodes();
