@@ -31,6 +31,9 @@ class BPlusTree {
     private:
     DiskManager& disk_manager_;
     page_id_t root_page_id_;
+     uint64_t split_count_ = 0;
+    uint64_t merge_count_ = 0;
+    uint64_t redistribute_count_ = 0;
 
     page_id_t read_root_page_id() const;
     void write_root_page_id(page_id_t page_id);
@@ -69,6 +72,12 @@ class BPlusTree {
     std::vector<std::pair<int32_t, std::string>> scan_all() const; 
     bool is_empty() const { return root_page_id_ == EMPTY_TREE_SENTINEL; }
     page_id_t root_page_id() const { return root_page_id_; }
+
+    // B+ tree operation statistics
+    uint64_t split_count() const { return split_count_; }
+    uint64_t merge_count() const { return merge_count_; }
+    uint64_t redistribute_count() const { return redistribute_count_; }
+    void reset_stats() { split_count_ = 0; merge_count_ = 0; redistribute_count_ = 0; }
 };
 }
 

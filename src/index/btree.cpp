@@ -235,6 +235,7 @@ void BPlusTree::borrow_leaf_right(LeafNode& leaf, page_id_t leaf_page,LeafNode& 
     parent.set_key_at(sep, right.key_at(0));
     write_node(leaf_page, leaf);
     write_node(right_page, right);
+    ++redistribute_count_;
 }
 
 void BPlusTree::borrow_leaf_left(LeafNode& leaf, page_id_t leaf_page,LeafNode& left, page_id_t left_page,InternalNode& parent, int sep) {
@@ -243,6 +244,7 @@ void BPlusTree::borrow_leaf_left(LeafNode& leaf, page_id_t leaf_page,LeafNode& l
     parent.set_key_at(sep, leaf.key_at(0));
     write_node(leaf_page, leaf);
     write_node(left_page, left);
+    ++redistribute_count_;
 }
 void BPlusTree::merge_leaf(LeafNode& left, page_id_t left_page,LeafNode& right, page_id_t right_page,InternalNode& parent, page_id_t parent_page,int sep) {
     left.append_from(right);
@@ -250,6 +252,7 @@ void BPlusTree::merge_leaf(LeafNode& left, page_id_t left_page,LeafNode& right, 
     parent.remove_key_and_child(sep, sep + 1);
     write_node(left_page, left);
     write_node(parent_page, parent);
+     ++merge_count_;
 }
 void BPlusTree::borrow_internal_right(InternalNode& node, page_id_t node_page,InternalNode& right, page_id_t right_page,InternalNode& parent, int sep) {
     int32_t separator = parent.key_at(sep);
@@ -258,6 +261,7 @@ void BPlusTree::borrow_internal_right(InternalNode& node, page_id_t node_page,In
     parent.set_key_at(sep, rk);
     write_node(node_page, node);
     write_node(right_page, right);
+    ++redistribute_count_;
 }
 void BPlusTree::borrow_internal_left(InternalNode& node, page_id_t node_page,InternalNode& left, page_id_t left_page,InternalNode& parent, int sep) {
     int32_t separator = parent.key_at(sep);
@@ -266,6 +270,7 @@ void BPlusTree::borrow_internal_left(InternalNode& node, page_id_t node_page,Int
     parent.set_key_at(sep, lk);
     write_node(node_page, node);
     write_node(left_page, left);
+    ++redistribute_count_;
 }
 void BPlusTree::merge_internal(InternalNode& left, page_id_t left_page,InternalNode& right, page_id_t right_page,InternalNode& parent, page_id_t parent_page,int sep) {
     int32_t separator = parent.key_at(sep);
@@ -273,6 +278,7 @@ void BPlusTree::merge_internal(InternalNode& left, page_id_t left_page,InternalN
     parent.remove_key_and_child(sep, sep + 1);
     write_node(left_page, left);
     write_node(parent_page, parent);
+     ++merge_count_;
 }
 
 // Insert O(log n)
@@ -402,6 +408,8 @@ SplitResult BPlusTree::split_leaf(LeafNode& leaf, page_id_t leaf_page_id,int32_t
     write_node(leaf_page_id, left);
     write_node(right_page, right);
 
+    ++split_count_;
+
     return SplitResult{true, all_keys[mid], right_page};
 }
 
@@ -452,6 +460,7 @@ SplitResult BPlusTree::split_internal(InternalNode& node,page_id_t node_page_id,
     write_node(node_page_id, left);
     write_node(right_page, right_node);
 
+    ++split_count_;
     return SplitResult{true, promoted_key, right_page};
 }
 }

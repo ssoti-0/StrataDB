@@ -60,6 +60,8 @@ void DiskManager::read_page(page_id_t page_id, Page& buffer) const {
     if(!file_.good()) {
         throw std::runtime_error("read_page: read failed");
     }
+
+    ++read_count_;
 }
 
 void DiskManager::write_page(page_id_t page_id, const Page& buffer) {
@@ -79,6 +81,7 @@ void DiskManager::write_page(page_id_t page_id, const Page& buffer) {
     }
     //Flush is used here to make sure that the data reaches the disk.
     file_.flush();
+     ++write_count_;
 
     if (page_id == num_pages_) {
         ++num_pages_;

@@ -25,6 +25,9 @@ class DiskManager {
     std::string file_path_;
     mutable std::fstream file_;
     page_id_t num_pages_;
+    mutable uint64_t read_count_ = 0;
+    uint64_t write_count_ = 0;
+
 
     public:
     explicit DiskManager(const std::string& file_path);
@@ -44,6 +47,11 @@ class DiskManager {
 
     page_id_t num_pages() const;
     const std::string& file_path() const;
+
+    // I/O statistics
+    uint64_t read_count() const { return read_count_; }
+    uint64_t write_count() const { return write_count_; }
+    void reset_stats() { read_count_ = 0; write_count_ = 0; }
 
 };
 }
