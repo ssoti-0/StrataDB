@@ -320,6 +320,7 @@ int main() {
     test_parser();
     test_executor();
     test_join();
+    test_rebalancing();
 
     std::cout << "\nResults: " << test_passed << " passed, "<< test_failed << " failed\n";
     return test_failed > 0 ? 1 : 0;

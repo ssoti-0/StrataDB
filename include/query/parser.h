@@ -24,6 +24,9 @@ enum class TokenType {
     JOIN,
     ON,
     TEXT,
+    STATS,
+    VERBOSE,
+    BENCHMARK,
 
      
     IDENTIFIER,  

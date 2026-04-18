@@ -40,7 +40,15 @@ struct JoinSelectStmt {
     std::string right_column;  
 };
 
-using Statement = std::variant<CreateTableStmt, InsertStmt, SelectStmt, DeleteStmt, SelectAllStmt, JoinSelectStmt>;
+struct StatsStmt {};
+
+struct VerboseStmt {
+    bool enable;  // true = ON, false = OFF
+};
+
+struct BenchmarkStmt {};
+
+using Statement = std::variant<CreateTableStmt, InsertStmt, SelectStmt, DeleteStmt, SelectAllStmt, JoinSelectStmt, StatsStmt, VerboseStmt, BenchmarkStmt>;
 
 }
 

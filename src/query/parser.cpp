@@ -24,6 +24,9 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"JOIN",TokenType::JOIN},
     {"ON", TokenType::ON},
     {"TEXT", TokenType::TEXT},
+    {"STATS",TokenType::STATS},
+    {"VERBOSE",TokenType::VERBOSE},
+    {"BENCHMARK",TokenType::BENCHMARK},
 };
 
 static std::string token_type_name(TokenType type) {
@@ -43,6 +46,9 @@ static std::string token_type_name(TokenType type) {
         case TokenType::JOIN:return "JOIN";
         case TokenType::ON:return "ON";
         case TokenType::TEXT:return "TEXT";
+        case TokenType::STATS:return "STATS";
+        case TokenType::VERBOSE:return "VERBOSE";
+        case TokenType::BENCHMARK:return "BENCHMARK";
         case TokenType::IDENTIFIER:return "identifier";
         case TokenType::INTEGER:return "integer";
         case TokenType::STRING:return "string";
@@ -156,8 +162,32 @@ Statement Parser::parse(const std::string& sql) {
       }
     } else if (parser.check(TokenType::DELETE)) {
         stmt = parser.parse_delete();
+    } else if (parser.check(TokenType::STATS)) {
+          parser.advance();
+          stmt = StatsStmt{};
+    } else if (parser.check(TokenType::VERBOSE)) {
+        parser.advance();
+        // ON is a keyword token, OFF is an identifier — handle both
+        if (parser.check(TokenType::ON)) {
+            parser.advance();
+            stmt = VerboseStmt{true};
+        } else if (parser.check(TokenType::IDENTIFIER)) {
+            std::string upper = parser.current().value;
+            std::transform(upper.begin(), upper.end(), upper.begin(),[](unsigned char c) { return std::toupper(c); });
+            if (upper == "OFF") {
+            parser.advance();
+            stmt = VerboseStmt{false};
+        } else {
+            parser.error("expected ON or OFF after VERBOSE");
+        }
+        } else {
+            parser.error("expected ON or OFF after VERBOSE");
+        }
+    } else if (parser.check(TokenType::BENCHMARK)) {
+        parser.advance();
+        stmt = BenchmarkStmt{};
     } else {
-        parser.error("expected CREATE, INSERT, SELECT, or DELETE");
+        parser.error("expected CREATE, INSERT, SELECT, DELETE, STATS, VERBOSE, or BENCHMARK");
     }
 
     parser.match(TokenType::SEMICOLON);
