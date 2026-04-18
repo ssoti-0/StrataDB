@@ -1,4 +1,5 @@
 #include "execution/executor.h"
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <stdexcept>
@@ -43,49 +44,69 @@ Executor::Executor(const std::string& base_dir) : base_dir_(base_dir) {
           return execute_select_all(*s);
       if (auto* s = std::get_if<JoinSelectStmt>(&stmt))
           return execute_join_select(*s);
+      if (std::get_if<StatsStmt>(&stmt))
+          return execute_stats();
+      if (auto* s = std::get_if<VerboseStmt>(&stmt))
+          return execute_verbose(*s);
+      if (std::get_if<BenchmarkStmt>(&stmt))
+          return execute_benchmark();
       throw std::runtime_error("unknown statement type");
  }
 
 std::string Executor::execute_create(const CreateTableStmt& stmt) {
+    std::string out;
+    vlog(out, "[Parser]    Parsed CREATE TABLE statement");
+    vlog(out, "[Executor]  Creating table '" + stmt.table_name + "' (" + stmt.key_column + " INT PK, " + stmt.value_column + " " + stmt.value_type + ")");
+
     if (tables_.count(stmt.table_name)) {
-        throw std::runtime_error(
-        "Table '" + stmt.table_name + "' already exists.");
+        throw std::runtime_error("Table '" + stmt.table_name + "' already exists.");
     }
     std::string path = base_dir_ + "/" + stmt.table_name + ".db";
 
     TableInfo handle;
     handle.disk_manager = std::make_unique<DiskManager>(path);
+    vlog(out, "[Storage]   Created file '" + path + "'");
     handle.tree = std::make_unique<BPlusTree>(*handle.disk_manager);
+    vlog(out, "[B+ Tree]   Initialized empty tree (metadata page 0 allocated)");
     handle.schema.initialized = true;
     handle.schema.table_name = stmt.table_name;
     handle.schema.key_column = stmt.key_column;
     handle.schema.value_column = stmt.value_column;
     handle.schema.value_type = stmt.value_type;
     write_schema(*handle.disk_manager, handle.schema);
+    vlog(out, "[Storage]   Schema written to page 0");
     tables_[stmt.table_name] = std::move(handle);
-    return "Table '" + stmt.table_name + "' created.";
+    out += "Table '" + stmt.table_name + "' created.";
+    return out;
 }
 std::string Executor::execute_insert(const InsertStmt& stmt) {
+    std::string out;
+    vlog(out, "[Parser]    Parsed INSERT statement");
+    vlog(out, "[Executor]  Inserting key=" + std::to_string(stmt.key) + " value='" + stmt.value + "' into '" + stmt.table_name + "'");
     auto& table = get_table(stmt.table_name);
+    vlog(out, "[B+ Tree]   Navigating from root (page " + std::to_string(table.tree->root_page_id()) + ") to target leaf");
     table.tree->insert(stmt.key, stmt.value);
-    return "OK";
+    vlog(out, "[Storage]   Write completed (" + std::to_string(table.disk_manager->num_pages()) + " pages total)");
+    out += "OK";
+    return out;
 }
 std::string Executor::execute_select(const SelectStmt& stmt) {
+    std::string out;
+    vlog(out, "[Parser] Parsed SELECT statement");
+    vlog(out, "[Executor] Searching key=" + std::to_string(stmt.search_key) + " in '" + stmt.table_name + "'");
     auto& table = get_table(stmt.table_name);
-
+    vlog(out, "[B+ Tree]   Traversing from root (page " + std::to_string(table.tree->root_page_id()) + ") to leaf");
     std::string value;
     if (table.tree->search(stmt.search_key, value)) {
-        return table.schema.key_column + " | " + table.schema.value_column + "\n" + std::to_string(stmt.search_key) + " | " + value;
+        vlog(out, "[B+ Tree]   Key found in leaf node");
+        out += table.schema.key_column + " | " + table.schema.value_column + "\n" +
+    std::to_string(stmt.search_key) + " | " + value;
+        return out;
     }
-    return "No row found with " + table.schema.key_column + " = " + std::to_string(stmt.search_key) + ".";
-}
-std::string Executor::execute_delete(const DeleteStmt& stmt) {
-    auto& table = get_table(stmt.table_name);
-if (table.tree->delete_key(stmt.search_key)) {
-        return "Deleted " + table.schema.key_column + " =" + std::to_string(stmt.search_key) + ".";
-    }
-
-    return "No row found with " + table.schema.key_column + "= " + std::to_string(stmt.search_key) + ".";
+    vlog(out, "[B+ Tree]   Key not found");
+    out += "No row found with " + table.schema.key_column + " = " +
+    std::to_string(stmt.search_key) + ".";
+    return out;
 }
 std::string Executor::execute_select_all(const SelectAllStmt& stmt) {
     auto& table = get_table(stmt.table_name);
@@ -97,6 +118,22 @@ std::string Executor::execute_select_all(const SelectAllStmt& stmt) {
     for (const auto& [k, v] : rows) {result += "\n" + std::to_string(k) + " | " + (v);
     }
     return result;
+}
+
+std::string Executor::execute_delete(const DeleteStmt& stmt) {
+    std::string out;
+    vlog(out, "[Parser]    Parsed DELETE statement");
+    vlog(out, "[Executor]  Deleting key=" + std::to_string(stmt.search_key) + " from '" + stmt.table_name + "'");
+    auto& table = get_table(stmt.table_name);
+    vlog(out, "[B+ Tree]   Navigating to leaf containing key");
+    if (table.tree->delete_key(stmt.search_key)) {
+        vlog(out, "[B+ Tree]   Key removed (rebalancing applied if needed)");
+        out += "Deleted " + table.schema.key_column + " =" + std::to_string(stmt.search_key) + ".";
+        return out;
+    }
+    vlog(out, "[B+ Tree]   Key not found — nothing to delete");
+    out += "No row found with " + table.schema.key_column + "= " + std::to_string(stmt.search_key) + ".";
+    return out;
 }
 
 std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {

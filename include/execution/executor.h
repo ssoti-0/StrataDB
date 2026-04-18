@@ -30,10 +30,12 @@ class Executor {
 public:
     explicit Executor(const std::string& base_dir);
     std::string execute(const Statement& stmt);
+    bool verbose() const { return verbose_; }
 
 private:
 
     std::string base_dir_;
+    bool verbose_ = false;
     // per-table storage
     std::map<std::string, TableInfo> tables_;
 
@@ -43,10 +45,14 @@ private:
     std::string execute_delete(const DeleteStmt& stmt);
     std::string execute_select_all(const SelectAllStmt& stmt);
     std::string execute_join_select(const JoinSelectStmt& stmt);
+    std::string execute_stats();
+    std::string execute_verbose(const VerboseStmt& stmt);
+    std::string execute_benchmark();
     TableInfo& get_table(const std::string& name);
     // schema persistence in page 0 of each table's file
     Schema read_schema(DiskManager& dm) const;
     void write_schema(DiskManager& dm, const Schema& schema);
+    void vlog(std::string& out, const std::string& msg) const;
   };
 
 } 
