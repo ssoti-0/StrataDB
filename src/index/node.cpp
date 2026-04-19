@@ -38,24 +38,23 @@ namespace stratadb {
         std::memcpy(page.data() + offset, &next_leaf_, sizeof(uint32_t));
     }
     std::unique_ptr<LeafNode> LeafNode::deserialize_leaf(const Page& page) {
-       auto node = std::make_unique<LeafNode>();
-       std::size_t offset = 0;
-       offset += sizeof(uint32_t);
-
-       for (int i = 0; i < ORDER; ++i) {
+      auto node = std::make_unique<LeafNode>();
+      std::size_t offset = 0;
+      offset += sizeof(uint32_t);  // skip is_leaf
+      std::memcpy(&node->num_keys_, page.data() + offset, sizeof(uint32_t));
+      offset += sizeof(uint32_t);
+      if (node->num_keys_ > ORDER) {
+        throw std::runtime_error(
+            "LeafNode::deserialize: num_keys " + std::to_string(node->num_keys_) + " exceeds ORDER " + std::to_string(ORDER));
+      }
+      std::memcpy(node->keys_.data(), page.data() + offset,ORDER * sizeof(int32_t));
+      offset += ORDER * sizeof(int32_t);
+      for (int i = 0; i < ORDER; ++i) {
           node->values_[i] = std::string(page.data() + offset);
           offset += MAX_VALUE_SIZE;
-        }
-        if (node->num_keys_ > ORDER) {
-            throw std::runtime_error("LeafNode::deserialize: num_keys " + std::to_string(node->num_keys_) + " esceeds ORDER" + std::to_string(ORDER));
-        }
-    
-       std::memcpy(node->keys_.data(), page.data() + offset, ORDER * sizeof(int32_t));
-       offset += ORDER * sizeof(int32_t);
-       std::memcpy(node->values_.data(), page.data() + offset, ORDER * sizeof(int32_t));
-       offset += ORDER * sizeof(int32_t);
-       std::memcpy(&node->next_leaf_, page.data() + offset, sizeof(uint32_t));
-       return node;
+      }
+      std::memcpy(&node->next_leaf_, page.data() + offset, sizeof(uint32_t));
+      return node;
     }
 
     int LeafNode::find_key(int32_t key) const {

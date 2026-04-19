@@ -209,21 +209,21 @@ CreateTableStmt Parser::parse_create_table() {
 
     const Token& key_col = expect(TokenType::IDENTIFIER,"primary key column name");
     stmt.key_column = key_col.value;
-    if (check(TokenType::INT)) {
-        advance();
-        stmt.value_type = "INT";
-    } else if (check(TokenType::TEXT)) {
-        advance();
-        stmt.value_type = "TEXT";
-    } else {
-        error("expected INT or TEXT for column type");
-    }
+    expect(TokenType::INT, "INT type for primary key");
     expect(TokenType::PRIMARY, "PRIMARY KEY");
     expect(TokenType::KEY, "KEY");
     expect(TokenType::COMMA, "comma");
     const Token& val_col = expect(TokenType::IDENTIFIER, "value column name");
     stmt.value_column = val_col.value;
-    expect(TokenType::INT, "column type (must be INT)");
+    if (check(TokenType::INT)) {
+      advance();
+      stmt.value_type = "INT";
+    } else if (check(TokenType::TEXT)) {
+      advance();
+      stmt.value_type = "TEXT";
+    } else {
+      error("expected INT or TEXT for column type");
+    }
 
     expect(TokenType::RPAREN, "closing paren");
 
