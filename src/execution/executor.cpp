@@ -81,12 +81,12 @@ std::string Executor::execute_create(const CreateTableStmt& stmt) {
 }
 std::string Executor::execute_insert(const InsertStmt& stmt) {
     std::string out;
-    vlog(out, "[Parser]    Parsed INSERT statement");
-    vlog(out, "[Executor]  Inserting key=" + std::to_string(stmt.key) + " value='" + stmt.value + "' into '" + stmt.table_name + "'");
+    vlog(out, "[Parser]Parsed INSERT statement");
+    vlog(out, "[Executor]Inserting key=" + std::to_string(stmt.key) + " value='" + stmt.value + "' into '" + stmt.table_name + "'");
     auto& table = get_table(stmt.table_name);
-    vlog(out, "[B+ Tree]   Navigating from root (page " + std::to_string(table.tree->root_page_id()) + ") to target leaf");
+    vlog(out, "[B+ Tree]Navigating from root (page " + std::to_string(table.tree->root_page_id()) + ") to target leaf");
     table.tree->insert(stmt.key, stmt.value);
-    vlog(out, "[Storage]   Write completed (" + std::to_string(table.disk_manager->num_pages()) + " pages total)");
+    vlog(out, "[Storage]Write completed (" + std::to_string(table.disk_manager->num_pages()) + " pages total)");
     out += "OK";
     return out;
 }
@@ -122,12 +122,12 @@ std::string Executor::execute_select_all(const SelectAllStmt& stmt) {
 
 std::string Executor::execute_delete(const DeleteStmt& stmt) {
     std::string out;
-    vlog(out, "[Parser]    Parsed DELETE statement");
-    vlog(out, "[Executor]  Deleting key=" + std::to_string(stmt.search_key) + " from '" + stmt.table_name + "'");
+    vlog(out, "[Parser] Parsed DELETE statement");
+    vlog(out, "[Executor] Deleting key=" + std::to_string(stmt.search_key) + " from '" + stmt.table_name + "'");
     auto& table = get_table(stmt.table_name);
-    vlog(out, "[B+ Tree]   Navigating to leaf containing key");
+    vlog(out, "[B+ Tree] Navigating to leaf containing key");
     if (table.tree->delete_key(stmt.search_key)) {
-        vlog(out, "[B+ Tree]   Key removed (rebalancing applied if needed)");
+        vlog(out, "[B+ Tree]Key removed (rebalancing applied if needed)");
         out += "Deleted " + table.schema.key_column + " =" + std::to_string(stmt.search_key) + ".";
         return out;
     }
@@ -166,6 +166,107 @@ std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {
     }
     return result;
 }
+
+std::string Executor::execute_stats() {
+    std::string out = "StrataDB Statistics\n";
+    out += "\nLoaded tables: " + std::to_string(tables_.size()) + "\n";
+
+    uint64_t total_reads = 0, total_writes = 0;
+    uint64_t total_splits = 0, total_merges = 0, total_redist = 0;
+
+    for (auto& [name, info] : tables_) {
+        out += "\nTable: " + name + "\n";
+        auto rows = info.tree->scan_all();
+        out += "Records: " + std::to_string(rows.size()) + "\n";
+        out += "Pages on disk: " + std::to_string(info.disk_manager->num_pages()) + "\n";
+        out += "Page reads: " + std::to_string(info.disk_manager->read_count()) + "\n";
+        out += "Page writes: " + std::to_string(info.disk_manager->write_count()) + "\n";
+        out += "Node splits: " + std::to_string(info.tree->split_count()) + "\n";
+        out += "Node merges: " + std::to_string(info.tree->merge_count()) + "\n";
+        out += "Redistributions: " + std::to_string(info.tree->redistribute_count()) + "\n";
+
+        total_reads += info.disk_manager->read_count();
+        total_writes += info.disk_manager->write_count();
+        total_splits += info.tree->split_count();
+        total_merges += info.tree->merge_count();
+        total_redist += info.tree->redistribute_count();
+    }
+
+      if (tables_.size() > 1) {
+        out += "\nTotals\n";
+        out += "Total page reads: " + std::to_string(total_reads) + "\n";
+        out += "Total page writes: " + std::to_string(total_writes) + "\n";
+        out += "Total splits: " + std::to_string(total_splits) + "\n";
+        out += "Total merges: " + std::to_string(total_merges) + "\n";
+        out += "Total redistributions: " + std::to_string(total_redist);
+    }
+
+    return out;
+}
+
+std::string Executor::execute_verbose(const VerboseStmt& stmt) {
+    verbose_ = stmt.enable;
+    return std::string("Verbose mode ") + (verbose_ ? "ON" : "OFF") + ".";
+}
+
+std::string Executor::execute_benchmark() {
+    using Clock = std::chrono::high_resolution_clock;
+    std::string out = "StrataDB Benchmark\n";
+    const int scales[] = {25, 100, 1000};
+
+    for (int n : scales) {
+        // create a temporary database file for this run
+        std::string tmp_file = base_dir_ + "/_benchmark_tmp.db";
+        std::remove(tmp_file.c_str());
+        DiskManager dm(tmp_file);
+        BPlusTree tree(dm);
+
+        //INSERT benchmark 
+        auto t0 = Clock::now();
+        for (int i = 1; i <= n; i++) {
+            tree.insert(i, std::to_string(i * 10));
+        }
+        auto t1 = Clock::now();
+        auto insert_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+        //SEARCH benchmark 
+        t0 = Clock::now();
+        std::string val;
+        for (int i = 1; i <= n; i++) {
+            tree.search(i, val);
+        }
+        t1 = Clock::now();
+        auto search_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+        //SCAN benchmark 
+        t0 = Clock::now();
+        auto rows = tree.scan_all();
+        t1 = Clock::now();
+        auto scan_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+        //DELETE benchmark
+        t0 = Clock::now();
+        for (int i = 1; i <= n; i++) {
+            tree.delete_key(i);
+        }
+        t1 = Clock::now();
+        auto delete_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+        out += "\n" + std::to_string(n) + " keys:\n";
+        out += "Insert: " + std::to_string(insert_us) + " us\n";
+        out += "Search: " + std::to_string(search_us) + " us\n";
+        out += "Scan: " + std::to_string(scan_us) + " us\n";
+        out += "Delete: " + std::to_string(delete_us) + " us\n";
+        out += "Pages: " + std::to_string(dm.num_pages()) + "\n";
+        std::remove(tmp_file.c_str());
+    }
+    return out;
+}
+void Executor::vlog(std::string& out, const std::string& msg) const {
+    if (verbose_) {
+        out += msg + "\n";
+    }
+}
+
 
 
 TableInfo& Executor::get_table(const std::string& name) {
