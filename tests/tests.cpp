@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <variant>
 
 static int test_passed = 0;
 static int test_failed = 0;
