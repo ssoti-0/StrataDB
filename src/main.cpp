@@ -246,15 +246,17 @@ static void test_join() {
     std::remove("testdata/grades.db");
     stratadb::Executor exec("testdata");
 
-    run_sql(exec,"CREATE TABLE students (id INT PRIMARY KEY, name INT)");
+    run_sql(exec,"CREATE TABLE students (id INT PRIMARY KEY, name TEXT)");
     run_sql(exec,"CREATE TABLE grades (sid INT PRIMARY KEY, score INT)");
-    run_sql(exec,"INSERT INTO students VALUES (1, 10)");
-    run_sql(exec,"INSERT INTO students VALUES (2, 20)");
+    run_sql(exec,"INSERT INTO students VALUES (1, 'Alice')");
+    run_sql(exec,"INSERT INTO students VALUES (2, 'Bob')");
     run_sql(exec,"INSERT INTO grades VALUES (1, 95)");
     run_sql(exec,"INSERT INTO grades VALUES (3, 80)");
 
     auto result = run_sql(exec,"SELECT * FROM students JOIN grades ON students.id = grades.sid");
     check(result.find("95") != std::string::npos, "join found matching row");
+    check(result.find("Alice") != std::string::npos, "join result contains string value");
+    check(result.find("Bob") == std::string::npos, "non-matching row excluded from join");
 }
 
  static void test_rebalancing() {                                                                  
