@@ -244,7 +244,6 @@ InsertStmt Parser::parse_insert() {
 
         std::string value;
         if (check(TokenType::INTEGER)) {
-            const Token& val_tok = advance();
             value = advance().value;
         } else if (check(TokenType::STRING)) {
             value = advance().value;
