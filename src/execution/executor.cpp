@@ -82,12 +82,15 @@ std::string Executor::execute_create(const CreateTableStmt& stmt) {
 std::string Executor::execute_insert(const InsertStmt& stmt) {
     std::string out;
     vlog(out, "[Parser]Parsed INSERT statement");
-    vlog(out, "[Executor]Inserting key=" + std::to_string(stmt.key) + " value='" + stmt.value + "' into '" + stmt.table_name + "'");
     auto& table = get_table(stmt.table_name);
-    vlog(out, "[B+ Tree]Navigating from root (page " + std::to_string(table.tree->root_page_id()) + ") to target leaf");
-    table.tree->insert(stmt.key, stmt.value);
+
+    for (const auto& row : stmt.rows) {
+        vlog(out, "[Executor]Inserting key=" + std::to_string(row.first) + " value='" + row.second + "' into '" + stmt.table_name + "'");
+        vlog(out, "[B+ Tree]Navigating from root (page " + std::to_string(table.tree->root_page_id()) + ") to target leaf");
+        table.tree->insert(row.first, row.second);
+    }
     vlog(out, "[Storage]Write completed (" + std::to_string(table.disk_manager->num_pages()) + " pages total)");
-    out += "OK";
+    out += "OK (" + std::to_string(stmt.rows.size()) + " row" + (stmt.rows.size() > 1 ? "s" : "") + ")";    
     return out;
 }
 std::string Executor::execute_select(const SelectStmt& stmt) {

@@ -198,8 +198,9 @@ static void test_parser() {
     {
         auto stmt = stratadb::Parser::parse("INSERT INTO students VALUES (42, 95)");
         auto& insert = std::get<stratadb::InsertStmt>(stmt);
-        check(insert.key == 42, "INSERT parses key");
-        check(insert.value == "95", "INSERT parses value");
+        check(insert.rows.size() == 1, "INSERT parses one row");
+        check(insert.rows[0].first == 42, "INSERT parses key");
+        check(insert.rows[0].second == "95", "INSERT parses value");
     }
     {
         auto stmt = stratadb::Parser::parse("SELECT * FROM students WHERE id = 42");

@@ -236,25 +236,25 @@ InsertStmt Parser::parse_insert() {
     InsertStmt stmt;
     stmt.table_name = name_tok.value;
     expect(TokenType::VALUES, "VALUES");
-    expect(TokenType::LPAREN, "opening paren");
-    const Token& key_tok = expect(TokenType::INTEGER,"key value");
-    stmt.key = std::stoi(key_tok.value);
-    expect(TokenType::COMMA, "between values");
+    do {
+        expect(TokenType::LPAREN, "opening paren");
+        const Token& key_tok = expect(TokenType::INTEGER,"key value");
+        int32_t key = std::stoi(key_tok.value);
+        expect(TokenType::COMMA, "between values");
 
-    if (check(TokenType::INTEGER)) {
-        const Token& val_tok = advance();
-        stmt.value = val_tok.value;
-    } else if (check(TokenType::STRING)) {
-        const Token& val_tok = advance();
-        stmt.value = val_tok.value;
-    } else {
-        error("expected integer or string value");
-    }
-
-
-
-    expect(TokenType::RPAREN, "closing paren");
-
+        std::string value;
+        if (check(TokenType::INTEGER)) {
+            const Token& val_tok = advance();
+            value = advance().value;
+        } else if (check(TokenType::STRING)) {
+            value = advance().value;
+        
+        } else {
+            error("expected integer or string value");
+        }
+        expect(TokenType::RPAREN, "closing paren");
+        stmt.rows.emplace_back(key, value);
+    } while (match(TokenType::COMMA));
     return stmt;
 }
 

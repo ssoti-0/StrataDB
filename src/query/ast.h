@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <string>
 #include <variant>
+#include <vector>
+#include <utility>
 
 namespace stratadb {
 struct CreateTableStmt {
@@ -15,8 +17,7 @@ struct CreateTableStmt {
 
 struct InsertStmt {
     std::string table_name;
-    int32_t key;
-    std::string value;
+    std::vector<std::pair<int32_t, std::string>> rows;
 };
 
 struct SelectStmt {
