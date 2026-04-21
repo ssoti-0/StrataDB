@@ -13,7 +13,7 @@ A from-scratch disk-based relational database engine implemented in C++20. Strat
 
 - Page-based storage with fixed-size 4096-byte disk pages
 - Self-balancing B+ tree index with search, insertion (with node splitting), and deletion (with redistribution, merging, and root shrinking)
-- Minimal SQL subset: CREATE TABLE, INSERT, SELECT (by primary key and full table scan), DELETE
+- Minimal SQL subset: CREATE TABLE, multi-row INSERT, SELECT (by primary key and full table scan), DELETE
 - Cross-table JOIN support (nested-loop equi-join)
 - INT and TEXT column types
 - Schema persistence — tables survive application restarts
@@ -76,7 +76,13 @@ A from-scratch disk-based relational database engine implemented in C++20. Strat
 
 ```sql
 CREATE TABLE students (id INT PRIMARY KEY, name TEXT);
+
+-- Single row
 INSERT INTO students VALUES (1, 'Alice');
+
+-- Multiple rows in one statement
+INSERT INTO students VALUES (2, 'Bob'), (3, 'Carol'), (4, 'Dan');
+
 SELECT * FROM students;
 SELECT * FROM students WHERE id = 1;
 DELETE FROM students WHERE id = 1;
@@ -132,10 +138,10 @@ StrataDB/
 - **Node operations** — sorted insertion, serialization round-trips, child index lookup, key and value access
 - **B+ Tree** — search, insert, cascading splits (25 keys), delete, full rebalancing (forward, reverse, partial delete with re-insert, delete to empty)
 - **Parser** — statement parsing (CREATE, INSERT, SELECT, DELETE), case insensitivity, error handling for unknown and incomplete statements
-- **Executor** — full CRUD workflow (CREATE, INSERT, SELECT, DELETE)
+- **Executor** — full Create, Read, Delete workflow (CREATE, INSERT, SELECT, DELETE)
 - **Join** — cross-table inner join with string values
 
-**Results:** 55 passed, 0 failed
+**Results:** 56 passed, 0 failed
 
 ---
 
