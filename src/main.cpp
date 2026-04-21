@@ -8,7 +8,7 @@ int main() {
     std::cout << "StrataDB Interactive Shell\n";
     std::cout << "Type SQL commands, or 'quit' to exit.\n";
     std::cout << "All commands end with a semicolon (;)\n";                                           
-    std::cout << "Special commands: STATS, VERBOSE ON/OFF, BENCHMARK\n\n";
+    std::cout << "Special commands: STATS; VERBOSE ON/OFF; BENCHMARK;\n\n";
 
     stratadb::Executor exec("data");
 
@@ -17,7 +17,7 @@ int main() {
           if (buffer.empty())
               std::cout << "stratadb> " << std::flush;
           else
-              std::cout << "       -> " << std::flush;
+              std::cout << "       > " << std::flush;
 
           std::string line;
           if (!std::getline(std::cin, line)) break;
