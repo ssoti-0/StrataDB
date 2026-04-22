@@ -158,7 +158,7 @@ std::string Executor::execute_join_select(const JoinSelectStmt& stmt) {
         for (const auto& [rk, rv] : right_rows) {
             std::string r_val = right_uses_key ? std::to_string(rk) : rv;
             if (l_val == r_val) {
-                result += "\n" + std::to_string(lk) + " | " + lv + " | " + std::to_string(rk) + "" + rv;
+                result += "\n" + std::to_string(lk) + " | " + lv + " | " + std::to_string(rk) + " | " + rv;
                 ++match_count;
             }
         }
